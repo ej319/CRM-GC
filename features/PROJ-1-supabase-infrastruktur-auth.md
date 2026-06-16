@@ -1,6 +1,6 @@
 # PROJ-1: Supabase Infrastruktur & Auth
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-06-16
 **Last Updated:** 2026-06-16
 
@@ -118,6 +118,15 @@ Speicherort: Supabase (PostgreSQL).
 - Umgebungsvariablen (Projekt-URL + Anon-Key) eintragen.
 - In der Google-Cloud die Google-Anmeldung (OAuth) freischalten und mit Supabase verbinden.
 - Supabase-Client in [src/lib/supabase.ts](../src/lib/supabase.ts) aktivieren (aktuell nur Platzhalter).
+
+## Frontend-Implementierung (Stand 2026-06-16)
+- **Login-Seite `/login`:** Pipedrive-Look, zentrierte Karte mit Button „Mit Google anmelden" (vierfarbiges Google-Icon). Der Button zeigt aktuell einen Hinweis-Toast; die echte Supabase-Google-Anmeldung folgt in `/backend`.
+- **Grund-Gerüst (`AppShell`):** obere Leiste mit Logo + Nutzer-Menü (Avatar-Dropdown mit „Abmelden"). Abmelden zeigt aktuell einen Hinweis-Toast; echte Abmeldung folgt in `/backend`.
+- **Startseite `/`:** Platzhalter-Dashboard mit Hinweis „Pipeline kommt in PROJ-2".
+- **Design:** Akzentfarbe auf Pipedrive-Grün gesetzt (`--primary: 151 65% 29%` in `globals.css`).
+- **Neue Dateien:** `src/components/google-icon.tsx`, `login-card.tsx`, `user-menu.tsx`, `app-shell.tsx`; `src/app/login/page.tsx`. **Geändert:** `src/app/layout.tsx` (Toaster, Sprache de), `src/app/page.tsx`, `src/app/globals.css`.
+- **Verifikation:** `npm run build` erfolgreich (Routen `/` und `/login`).
+- **Offen für `/backend`:** Supabase-Client aktivieren + Umgebungsvariablen, Google-OAuth, Allowlist-Prüfung, Route-Schutz (nicht angemeldet → `/login`), echte Session in `AppShell`/`UserMenu`, echte Abmeldung. Den Platzhalter-Nutzer in `AppShell` durch die echte Session ersetzen.
 
 ## QA Test Results
 _To be added by /qa_

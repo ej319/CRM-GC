@@ -15,7 +15,7 @@
 
 | ID | Feature | Priority | Dependencies | Status | Spec | Created |
 |----|---------|----------|--------------|--------|------|---------|
-| PROJ-1 | Supabase Infrastruktur & Auth | P0 | None | Roadmap | | |
+| PROJ-1 | Supabase Infrastruktur & Auth | P0 | None | Planned | PROJ-1-supabase-infrastruktur-auth.md | 2026-06-16 |
 | PROJ-2 | Pipeline-basierte Kunden- und Auftragsverwaltung (Kanban, Drag-and-Drop) | P0 | PROJ-1 | Roadmap | | |
 | PROJ-3 | Excel-Import mit Spaltenzuordnung | P0 | PROJ-1, PROJ-2 | Roadmap | | |
 | PROJ-4 | Kunden-/Auftrags-Detailansicht mit komplettem Verlauf | P0 | PROJ-2 | Roadmap | | |

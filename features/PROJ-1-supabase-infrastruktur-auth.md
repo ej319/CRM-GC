@@ -68,12 +68,56 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Supabase Auth übernimmt Google-Login | Keine eigene Passwort-Verwaltung/-Sicherung nötig; sicherster und einfachster Weg | 2026-06-16 |
+| Allowlist-Prüfung nach erfolgreicher Google-Anmeldung | E-Mail wird gegen die Allowlist-Tabelle geprüft; nicht gelistet → sofort abmelden + Meldung | 2026-06-16 |
+| Row Level Security auf allen Tabellen | Datenbank gibt nur an angemeldete, berechtigte Nutzer Daten heraus | 2026-06-16 |
+| Secrets ausschließlich in Umgebungsvariablen | Keine Zugangsschlüssel im Code | 2026-06-16 |
+| Pakete `@supabase/supabase-js` + `@supabase/ssr` | Verbindung zu Supabase und zuverlässiger Login in Next.js (Server + Browser) | 2026-06-16 |
+| Nutzerprofil-Tabelle getrennt von Supabase-Auth-Daten | Anmelde-Geheimnisse verwaltet Supabase Auth selbst; wir speichern nur Profil-Stammdaten | 2026-06-16 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Bausteine der Oberfläche
+```
+CRM-App  (alles hinter dem Login)
+│
+├── Login-Seite  (einziger ohne Anmeldung sichtbarer Bereich)
+│     └── Button „Mit Google anmelden"
+│
+├── Anmelde-Wächter  (prüft pro Seite: angemeldet? freigeschaltet?)
+│
+└── Grund-Gerüst nach dem Login
+      ├── Obere Leiste mit Nutzer-Menü  →  „Abmelden"
+      └── Start-/Platzhalter-Bereich  (wird später die Pipeline, PROJ-2)
+```
+Zusätzlich: zentrale Hinweis-/Fehleranzeige (z. B. „Zugang nicht freigeschaltet", „Google nicht erreichbar").
+
+### Datenmodell (in Klartext)
+**Nutzerprofile** – pro angemeldetem Nutzer: eindeutige Kennung, Name, E-Mail, Profilfoto (von Google), Datum der ersten Anmeldung.
+**Erlaubte Adressen (Allowlist)** – E-Mail-Adresse + Freischaltungsdatum. Aktuell nur die Adresse des Geschäftsführers.
+Die Anmelde-Geheimnisse selbst verwaltet Supabase Auth; sie liegen nicht in diesen Tabellen.
+
+Speicherort: Supabase (PostgreSQL).
+
+### Tech-Entscheidungen (warum)
+- **Supabase Auth mit Google:** keine eigene Passwortverwaltung; sicher und schnell; passt zur späteren Gmail-Anbindung (PROJ-7).
+- **Allowlist-Prüfung nach der Anmeldung:** nur freigeschaltete E-Mails dürfen rein, alle anderen werden sofort abgemeldet.
+- **Row Level Security:** Schutzwall in der Datenbank – nur berechtigte Nutzer erhalten Daten.
+- **Umgebungsvariablen für Geheimnisse:** Zugangsschlüssel liegen nie im Code.
+
+### Abhängigkeiten (zu installieren)
+- `@supabase/supabase-js` – Verbindung zur Supabase-Datenbank und -Auth.
+- `@supabase/ssr` – sorgt dafür, dass der Login in Next.js (Server + Browser) zuverlässig funktioniert.
+
+### Einmalige Einrichtung (Setup)
+- **Supabase-Projekt:** Es wird das bereits bestehende Projekt **„ej319's Project"** verwendet (Organisation `qykwpepzummfeisstkro`, Projekt-Ref `yuvybadqfenrhmyaudun`, Region `eu-central-1`/Frankfurt). Kein neues Projekt nötig.
+- Vor dem ersten Tabellen-Anlegen in `/backend` kurz prüfen, dass das Projekt leer ist (keine vorhandenen Tabellen/Daten überschreiben).
+- Umgebungsvariablen (Projekt-URL + Anon-Key) eintragen.
+- In der Google-Cloud die Google-Anmeldung (OAuth) freischalten und mit Supabase verbinden.
+- Supabase-Client in [src/lib/supabase.ts](../src/lib/supabase.ts) aktivieren (aktuell nur Platzhalter).
 
 ## QA Test Results
 _To be added by /qa_

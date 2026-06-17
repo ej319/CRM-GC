@@ -37,3 +37,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Windows / Google Drive Metadaten
+desktop.ini
+
+# beschaedigte Next-Dev-Zwischenspeicher (temporaer)
+.next.broken.*
+
+# lokale Datensicherungen (koennen Kundendaten enthalten)
+/docs/backup/

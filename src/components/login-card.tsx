@@ -12,19 +12,28 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { GoogleIcon } from "@/components/google-icon";
+import { createClient } from "@/lib/supabase/client";
 
 export function LoginCard() {
   const [loading, setLoading] = useState(false);
 
   async function handleGoogleLogin() {
     setLoading(true);
-    // TODO(PROJ-1 /backend): Echte Supabase-Google-Anmeldung einbauen
-    // (signInWithOAuth { provider: 'google' }), danach Allowlist-Prüfung.
     try {
-      toast.info(
-        "Die echte Google-Anmeldung wird im nächsten Schritt (/backend) aktiviert.",
-      );
-    } finally {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) {
+        toast.error("Anmeldung fehlgeschlagen. Bitte erneut versuchen.");
+        setLoading(false);
+      }
+      // Bei Erfolg leitet der Browser automatisch zu Google weiter.
+    } catch {
+      toast.error("Anmeldung fehlgeschlagen. Bitte erneut versuchen.");
       setLoading(false);
     }
   }
@@ -44,7 +53,7 @@ export function LoginCard() {
           className="w-full"
         >
           <GoogleIcon />
-          Mit Google anmelden
+          {loading ? "Weiterleitung zu Google …" : "Mit Google anmelden"}
         </Button>
         <p className="mt-4 text-center text-xs text-muted-foreground">
           Zugang nur für freigeschaltete Konten der G+C Facility GmbH.

@@ -128,6 +128,14 @@ Speicherort: Supabase (PostgreSQL).
 - **Verifikation:** `npm run build` erfolgreich (Routen `/` und `/login`).
 - **Offen für `/backend`:** Supabase-Client aktivieren + Umgebungsvariablen, Google-OAuth, Allowlist-Prüfung, Route-Schutz (nicht angemeldet → `/login`), echte Session in `AppShell`/`UserMenu`, echte Abmeldung. Den Platzhalter-Nutzer in `AppShell` durch die echte Session ersetzen.
 
+## Backend-Implementierung (Stand 2026-06-17)
+- **Datenbank (Supabase-Projekt `yuvybadqfenrhmyaudun`):** Auf ausdrücklichen, mehrfach bestätigten Wunsch des Nutzers wurde die vorhandene (Test-)Datenbank komplett zurückgesetzt. Sicherung der alten Daten liegt lokal unter `docs/backup/supabase-backup-2026-06-16.json`.
+- **Neue Tabellen:** `allowed_emails` (Allowlist) und `profiles` (Nutzerprofil), beide mit Row Level Security. Trigger `on_auth_user_created` → `handle_new_user()` legt ein Profil **nur für freigeschaltete Adressen** an. `EXECUTE` auf der Trigger-Funktion entzogen (Security-Advisor sauber). Allowlist befüllt mit `ej@gc-facility.de`.
+- **Code:** Paket `@supabase/ssr`; Clients in `src/lib/supabase/{client,server,middleware}.ts`; Seitenschutz + Session-Refresh in `middleware.ts` (Wurzel); OAuth-Rückkehr in `src/app/auth/callback/route.ts` (Code-Tausch + Allowlist-Prüfung, bei Nicht-Freischaltung Abmeldung + `?error=not_allowed`). `login-card.tsx` (echtes `signInWithOAuth` Google), `user-menu.tsx` (echtes `signOut`), `app-shell.tsx` (echte Session + Profil; Redirect bei fehlendem Profil), `login/page.tsx` (Fehlermeldungen).
+- **Konfiguration (manuell durch Nutzer):** Google-Cloud-Projekt „CRMGC", OAuth-Zustimmungsbildschirm (Intern), OAuth-Client „CRM Web" mit Redirect `https://yuvybadqfenrhmyaudun.supabase.co/auth/v1/callback`; in Supabase Google-Provider aktiviert (Client-ID/Secret) + URL-Konfiguration (Site URL `http://localhost:3000`, Redirect `http://localhost:3000/**`); `.env.local` mit URL + Anon-Key.
+- **Verifikation:** `/login` → 200, `/` (ohne Login) → 307 nach `/login`, `/auth/callback` ohne Code → 307 nach `/login?error=auth`. **Echter Google-Login vom Nutzer erfolgreich getestet** („klappt").
+- **Offen / später:** automatisierte Tests des Auth-Flows (in `/qa`); Mitarbeiter-Selbstverwaltung (eigenes Feature); produktive Redirect-URL ergänzen beim Deploy.
+
 ## QA Test Results
 _To be added by /qa_
 

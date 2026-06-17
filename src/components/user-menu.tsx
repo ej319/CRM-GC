@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { LogOut } from "lucide-react";
 import { toast } from "sonner";
 
@@ -13,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { createClient } from "@/lib/supabase/client";
 
 interface UserMenuProps {
   name: string;
@@ -21,6 +23,8 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ name, email, avatarUrl }: UserMenuProps) {
+  const [loading, setLoading] = useState(false);
+
   const initials = name
     .split(" ")
     .map((part) => part[0])
@@ -28,11 +32,16 @@ export function UserMenu({ name, email, avatarUrl }: UserMenuProps) {
     .slice(0, 2)
     .toUpperCase();
 
-  function handleLogout() {
-    // TODO(PROJ-1 /backend): Echte Abmeldung via Supabase (signOut) + Weiterleitung zu /login.
-    toast.info(
-      "Die Abmeldung wird im nächsten Schritt (/backend) aktiviert.",
-    );
+  async function handleLogout() {
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      window.location.href = "/login";
+    } catch {
+      toast.error("Abmelden fehlgeschlagen. Bitte erneut versuchen.");
+      setLoading(false);
+    }
   }
 
   return (
@@ -57,9 +66,9 @@ export function UserMenu({ name, email, avatarUrl }: UserMenuProps) {
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout}>
+        <DropdownMenuItem onClick={handleLogout} disabled={loading}>
           <LogOut className="mr-2 h-4 w-4" />
-          Abmelden
+          {loading ? "Wird abgemeldet …" : "Abmelden"}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

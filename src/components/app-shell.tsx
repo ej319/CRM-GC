@@ -1,4 +1,7 @@
+import { redirect } from "next/navigation";
+
 import { UserMenu } from "@/components/user-menu";
+import { createClient } from "@/lib/supabase/server";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -6,14 +9,31 @@ interface AppShellProps {
 
 /**
  * Grund-Gerüst der angemeldeten Ansicht: obere Leiste mit Logo + Nutzer-Menü,
- * darunter der Inhaltsbereich.
+ * darunter der Inhaltsbereich. Lädt den echten angemeldeten Nutzer.
  */
-export function AppShell({ children }: AppShellProps) {
-  // TODO(PROJ-1 /backend): Echten angemeldeten Nutzer aus der Supabase-Session laden.
-  const user = {
-    name: "Ewgeni Jussufov",
-    email: "ej@gc-facility.de",
-  };
+export async function AppShell({ children }: AppShellProps) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, email, avatar_url")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  // Kein Profil = nicht freigeschaltet -> zurück zur Login-Seite.
+  if (!profile) {
+    redirect("/login?error=not_allowed");
+  }
+
+  const displayName = profile.full_name || profile.email;
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/40">
@@ -24,7 +44,11 @@ export function AppShell({ children }: AppShellProps) {
             G+C Facility GmbH
           </span>
         </div>
-        <UserMenu name={user.name} email={user.email} />
+        <UserMenu
+          name={displayName}
+          email={profile.email}
+          avatarUrl={profile.avatar_url || undefined}
+        />
       </header>
       <main className="flex-1 p-4 sm:p-6">{children}</main>
     </div>

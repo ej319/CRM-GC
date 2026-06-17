@@ -1,6 +1,6 @@
 # PROJ-2: Pipeline-basierte Kundenverwaltung
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-06-17
 **Last Updated:** 2026-06-17
 
@@ -128,6 +128,16 @@ Speicherort: Supabase (PostgreSQL).
 ### Abhängigkeiten (zu installieren)
 - `@dnd-kit/core`, `@dnd-kit/sortable` – Drag-and-Drop fürs Kanban-Board.
 - Formulare/Validierung: `zod` + `react-hook-form` (bereits installiert).
+
+## Frontend-Implementierung (Stand 2026-06-17)
+- **Board auf „/"** (ersetzt den Platzhalter): 8 Phasen-Spalten, Karten per **Drag-and-Drop** verschiebbar (`@dnd-kit/core`), **grüner „+ Neuer Kunde"-Button**, **Sortier-Auswahl** (Letzte Aktivität / Alphabet / Auftragswert / Kategorie), Leer-Zustand.
+- **Karte** zeigt Firmenname, Ort, Kategorie-Etikett (farbig), Monatswert und den **Aktivitäts-Marker** (4 Zustände). Klick öffnet die **Detailseite im neuen Tab**.
+- **Anlege-Formular** als Dialog (`react-hook-form` + `zod`): nur Firmenname Pflicht, E-Mail-/Zahl-Validierung; neue Karte startet in „Kalter Kontakt".
+- **Detailseite `/kunde/[id]`**: Kundenfelder, Phasen-Auswahl, Speichern, Löschen (Sicherheitsabfrage) und **Verlauf-Platzhalter** rechts (PROJ-4).
+- **Neue Dateien:** `src/lib/pipeline/data.ts` (8 Phasen, Kategorie-/Quellen-Listen, 8 Beispiel-Kunden, Sortier-Helfer); `src/components/pipeline/{activity-marker,customer-card,pipeline-column,customer-form-dialog,pipeline-board,customer-detail}.tsx`; `src/app/kunde/[id]/page.tsx`. Geändert: `src/app/page.tsx`.
+- **Verifikation:** `tsc --noEmit` ohne Fehler; Dev-Server kompiliert sauber; „/" liefert für angemeldete Nutzer HTTP 200.
+- **Vorschau-Hinweis:** Es werden **Beispiel-Kunden** angezeigt; Anlegen/Verschieben passieren bisher nur im Browser-Speicher, Speichern/Löschen/Phase auf der Detailseite zeigen einen Hinweis-Toast.
+- **Offen für `/backend`:** Tabellen `pipeline_stages` + `customers` mit RLS; echtes Anlegen/Verschieben/Bearbeiten/Löschen persistieren; Beispieldaten durch echte DB-Daten ersetzen; Detailseite an die Datenbank anbinden.
 
 ## QA Test Results
 _To be added by /qa_

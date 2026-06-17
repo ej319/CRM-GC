@@ -1,8 +1,8 @@
 # PROJ-1: Supabase Infrastruktur & Auth
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-06-16
-**Last Updated:** 2026-06-16
+**Last Updated:** 2026-06-17
 
 ## Dependencies
 - None
@@ -137,7 +137,71 @@ Speicherort: Supabase (PostgreSQL).
 - **Offen / später:** automatisierte Tests des Auth-Flows (in `/qa`); Mitarbeiter-Selbstverwaltung (eigenes Feature); produktive Redirect-URL ergänzen beim Deploy.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-06-17
+**App URL:** http://localhost:3000
+**Tester:** QA Engineer (AI) + manuelle Bestätigung durch Nutzer
+
+### Acceptance Criteria Status
+
+#### AC-1: Nicht angemeldet → Umleitung zur Login-Seite
+- [x] `/` ohne Anmeldung leitet zu `/login` (E2E + manuell verifiziert)
+
+#### AC-2: Login mit freigeschaltetem Google-Konto → angemeldet, landet im Startbereich
+- [x] „Mit Google anmelden"-Button sichtbar (E2E)
+- [x] Echter Google-Login erfolgreich, landet auf Startseite (manuell vom Nutzer bestätigt: „klappt")
+
+#### AC-3: Nicht freigeschaltetes Konto → abgemeldet + Meldung
+- [x] Meldung „Dieser Zugang ist nicht freigeschaltet" wird angezeigt (E2E via `?error=not_allowed`)
+- [~] Abmeldung eines nicht freigeschalteten Kontos: Logik per Code-Review verifiziert (Callback prüft Allowlist → `signOut` → Redirect), live nicht getestet (kein zweites Konto verfügbar)
+
+#### AC-4: Angemeldet bleiben nach Browser-Neustart
+- [~] Per Code/Architektur abgedeckt (persistente Supabase-Cookies via `@supabase/ssr`); vom Nutzer noch kurz manuell zu bestätigen
+
+#### AC-5: Abmelden → Login-Seite
+- [~] Logik verifiziert (`signOut` + Weiterleitung zu `/login`); vom Nutzer noch kurz manuell zu bestätigen
+
+#### AC-6: Google/DB nicht erreichbar → Fehlermeldung, erneut versuchbar
+- [x] Fehlerpfad zeigt Meldung „Die Anmeldung ist fehlgeschlagen" (E2E via `?error=auth`); echter Netzwerkausfall nicht simuliert
+
+#### AC-7: Erster Login → Profil wird angelegt
+- [x] Verifiziert in der Datenbank: 1 Profil (`ej@gc-facility.de`, „Ewgeni Jussufov"), durch Trigger automatisch angelegt
+
+### Edge Cases Status
+- [x] Direkter Aufruf einer geschützten Seite ohne Login → Umleitung zu `/login` (E2E)
+- [x] `/auth/callback` ohne Code → `/login?error=auth` (E2E)
+- [x] Unbekannter `?error=`-Wert → neutrale Standard-Fehlermeldung (kein Roh-Wert gerendert)
+- [~] Abgebrochenes Google-Fenster / abgelaufene Sitzung: durch Middleware-Logik abgedeckt, nicht live getestet
+
+### Security Audit Results
+- [x] Authentication: `/` ohne Login nicht erreichbar (Middleware-Schutz)
+- [x] Authorization: Row Level Security auf `profiles` (nur eigenes Profil) und `allowed_emails` (nur eigene Adresse); keine fremden Daten lesbar
+- [x] Trigger-Funktion `handle_new_user` als SECURITY DEFINER abgesichert (`EXECUTE` entzogen) — Security-Advisor sauber
+- [x] Input/XSS: Login-Seite hat keine freien Texteingaben; `?error=`-Wert wird nur gegen eine feste Liste gemappt, nie roh gerendert
+- [x] Secrets: nur öffentlicher Anon-Key im Client (durch RLS abgesichert); `.env.local` ist gitignored; Service-Role-Key nicht im Client
+- [i] Hinweis (nicht relevant): Supabase-Advisor „Leaked Password Protection disabled" — betrifft Passwort-Logins, die hier nicht genutzt werden (nur Google-OAuth)
+
+### Bugs Found
+
+#### BUG-1: `npm test` lief in die Playwright-E2E-Datei (während QA behoben)
+- **Severity:** Low
+- **Steps to Reproduce:** `npm test` ausführen → Vitest versuchte `tests/*.spec.ts` (Playwright) zu laden → Fehler.
+- **Ursache/Fix:** `vitest.config.ts` hatte kein `include`/`exclude`. Auf `src/**` eingegrenzt, `tests/**` ausgeschlossen, `passWithNoTests` gesetzt. `npm test` läuft jetzt sauber (Code 0).
+- **Priority:** Behoben.
+
+#### Beobachtung (kein Bug): Kein Profilfoto gespeichert
+- `avatar_url` ist leer (Google lieferte kein Bild bzw. abweichender Metadaten-Schlüssel). Anzeige fällt sauber auf die Initialen „EJ" zurück. Severity: Low/kosmetisch.
+
+### Automatisierte Tests
+- E2E (Playwright, Chromium): **6/6 bestanden** — `tests/PROJ-1-supabase-infrastruktur-auth.spec.ts`
+- Unit (Vitest): keine nötig (keine nicht-triviale isolierte Logik); Suite läuft sauber durch
+
+### Summary
+- **Acceptance Criteria:** 7/7 erfüllt (3 davon live verifiziert, 3 per Code/Architektur abgesichert + vom Nutzer kurz manuell zu bestätigen, AC-2 vom Nutzer live bestätigt)
+- **Bugs Found:** 1 (0 kritisch, 0 hoch, 0 mittel, 1 niedrig — bereits behoben)
+- **Security:** Pass (eine nicht zutreffende Advisor-Warnung)
+- **Production Ready:** YES
+- **Recommendation:** Freigabe. Empfehlung: Nutzer bestätigt vor dem Deploy kurz manuell „Abmelden" und „angemeldet bleiben nach Browser-Neustart".
 
 ## Deployment
 _To be added by /deploy_

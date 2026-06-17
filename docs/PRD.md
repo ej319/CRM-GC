@@ -17,7 +17,7 @@ Zunächst der Geschäftsführer der G+C Facility GmbH als alleiniger Vertriebsnu
 | Priority | Feature | Status |
 |----------|---------|--------|
 | P0 (MVP) | Supabase Infrastruktur & Auth | Planned |
-| P0 (MVP) | Pipeline-basierte Kunden- und Auftragsverwaltung (Kanban, Drag-and-Drop) | Roadmap |
+| P0 (MVP) | Pipeline-basierte Kundenverwaltung (Kanban, Drag-and-Drop) | Planned |
 | P0 (MVP) | Excel-Import mit Spaltenzuordnung | Roadmap |
 | P0 (MVP) | Kunden-/Auftrags-Detailansicht mit komplettem Verlauf | Roadmap |
 | P0 (MVP) | Aktivitätenplanung und Aktivitätenliste | Roadmap |

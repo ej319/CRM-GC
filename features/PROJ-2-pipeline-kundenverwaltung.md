@@ -79,12 +79,55 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Eine `customers`-Tabelle mit direkter Phasen-Zuordnung (Karte = Kunde) | Einfachstes Modell, passt zu „Karte = Kunde" | 2026-06-17 |
+| Pipeline-Phasen als eigene Tabelle (Name, Reihenfolge, Farbe, gewonnen/verloren), 8 vorab angelegt | Erlaubt späteres Umbenennen/Sortieren/mehrere Pipelines ohne Code-Umbau | 2026-06-17 |
+| Kategorie/Quelle als Textfeld + App-seitige Auswahlliste | Einfach jetzt, leicht erweiterbar (Marketing-Quellen später); Verwaltungs-Oberfläche später | 2026-06-17 |
+| Drag-and-Drop via `@dnd-kit` | Bewährt, performant, tastatur-/barrierearm; kein Eigenbau | 2026-06-17 |
+| Speichern über Next Server Actions; optimistische Updates beim Verschieben | Flüssige Bedienung; Karte springt bei Fehler zurück | 2026-06-17 |
+| Detailseite unter eigener Route `/kunde/[id]` | Nur so im neuen Tab öffenbar | 2026-06-17 |
+| Board ersetzt die Platzhalter-Startseite „/" | Pipeline ist der Hauptarbeitsbereich (Landing nach Login) | 2026-06-17 |
+| RLS: alle angemeldeten/freigeschalteten Nutzer dürfen lesen + schreiben | Gemeinsame Team-Pipeline (PRD-Ziel) | 2026-06-17 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Bausteine der Oberfläche
+```
+Board-Seite „/"  (im Grund-Gerüst mit oberer Leiste + Nutzer-Menü)
+├── Kopfzeile:  [grüner +-Button „Neuer Kunde"]   [Sortier-Auswahl ▾]
+├── Kanban-Board (8 Spalten, seitlich scrollbar)
+│     ├── Spalte „Kalter Kontakt"
+│     │     └── Kundenkarte (ziehbar) – Name · Ort · Kategorie-Etikett · Wert · Aktivitäts-Marker
+│     ├── „Gespräch aufgenommen" → … → „Gewonnen" → „Verloren"
+│     └── Leer-Zustand: „Noch keine Kunden" + Hinweis auf +-Button
+└── Anlegen-/Bearbeiten-Dialog (Formular-Fenster)
+
+Kunden-Detailseite „/kunde/[id]"  (öffnet im neuen Tab)
+├── Kundenfelder anzeigen + bearbeiten
+├── Phase ändern (Auswahl)
+├── Löschen (Sicherheitsabfrage)
+└── [Platzhalter für Verlauf → PROJ-4]
+```
+
+### Datenmodell (in Klartext)
+- **Pipeline-Phasen** – Name, Reihenfolge, Farbe, Kennzeichen „gewonnen"/„verloren". 8 Einträge werden einmalig vorab angelegt.
+- **Kunden** – Firmenname (Pflicht), Ansprechpartner, Telefon, E-Mail, Adresse/PLZ/Ort, Kategorie, Quelle, Monatswert, aktuelle Phase, Erstell-/Änderungsdatum.
+- Geteilte Team-Daten: alle angemeldeten, freigeschalteten Nutzer sehen/bearbeiten dieselben Kunden (RLS schützt vor nicht angemeldeten Zugriffen).
+
+Speicherort: Supabase (PostgreSQL).
+
+### Tech-Entscheidungen (warum)
+- Fertige **Drag-and-Drop-Bibliothek** (`@dnd-kit`) statt Eigenbau: flüssig, bedienbar, weniger Fehler.
+- **Phasen als eigene Tabelle**: spätere Erweiterung (Umbenennen, mehrere Pipelines) ohne Code-Umbau.
+- **Kategorie/Quelle als App-Auswahlliste**: einfach + erweiterbar.
+- **Optimistisches Speichern** beim Verschieben: sofortige Reaktion, Rücksprung bei Fehler.
+- **Eigene Adresse pro Kunde**: ermöglicht „im neuen Tab öffnen".
+
+### Abhängigkeiten (zu installieren)
+- `@dnd-kit/core`, `@dnd-kit/sortable` – Drag-and-Drop fürs Kanban-Board.
+- Formulare/Validierung: `zod` + `react-hook-form` (bereits installiert).
 
 ## QA Test Results
 _To be added by /qa_

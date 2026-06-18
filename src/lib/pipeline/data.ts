@@ -1,16 +1,19 @@
-// Datenstruktur + Beispieldaten für das Pipeline-Board (PROJ-2).
-// Die echte Datenbank-Anbindung kommt in /backend; hier dienen Beispiel-Kunden
-// nur der Vorschau und zum Testen von Drag-and-Drop/Sortierung.
+// Typen, Phasen-Definition und Hilfsfunktionen für die Pipeline (PROJ-2).
+// Die Phasen sind zusätzlich als Tabelle in Supabase angelegt (gleiche IDs);
+// diese Konstante liefert Reihenfolge, Namen und Farben für die Oberfläche.
 
-export type StageId =
-  | "kalter_kontakt"
-  | "gespraech"
-  | "anfrage"
-  | "lead"
-  | "vor_ort"
-  | "angesprochen"
-  | "gewonnen"
-  | "verloren";
+export const STAGE_IDS = [
+  "kalter_kontakt",
+  "gespraech",
+  "anfrage",
+  "lead",
+  "vor_ort",
+  "angesprochen",
+  "gewonnen",
+  "verloren",
+] as const;
+
+export type StageId = (typeof STAGE_IDS)[number];
 
 export interface Stage {
   id: StageId;
@@ -68,22 +71,11 @@ export interface Customer {
   stageId: StageId;
   updatedAt: string;
   lastActivityAt?: string | null;
-  // Demo-Wert; die echte Marker-Logik liefert PROJ-5 (Aktivitäten).
+  // Echte Marker-Logik liefert PROJ-5 (Aktivitäten); bis dahin "none".
   activityStatus?: ActivityStatus;
 }
 
 export type SortKey = "last_activity" | "alpha" | "value" | "category";
-
-export const SAMPLE_CUSTOMERS: Customer[] = [
-  { id: "c1", name: "Sonnenschein Bürocenter", contactName: "Petra Lang", phone: "+4930111111", email: "info@sonnenschein.de", city: "Berlin", category: "Büro", source: "Google", monthlyValue: 1200, stageId: "kalter_kontakt", updatedAt: "2026-06-17", lastActivityAt: "2026-06-17", activityStatus: "today" },
-  { id: "c2", name: "Zahnarztpraxis Dr. Klein", contactName: "Dr. Klein", phone: "+4930222222", email: "praxis@drklein.de", city: "Berlin", category: "Arztpraxis", source: "Sonstige", monthlyValue: 650, stageId: "gespraech", updatedAt: "2026-06-12", lastActivityAt: "2026-06-12", activityStatus: "overdue" },
-  { id: "c3", name: "Kanzlei Hofmann & Partner", contactName: "RA Hofmann", phone: "+4933333333", email: "kontakt@hofmann-partner.de", city: "Potsdam", category: "Kanzlei", source: "Google", monthlyValue: 900, stageId: "anfrage", updatedAt: "2026-06-16", lastActivityAt: "2026-06-20", activityStatus: "future" },
-  { id: "c4", name: "FitPlus Studio", contactName: "Marco Renz", phone: "+4930444444", email: "team@fitplus.de", city: "Berlin", category: "Fitnessstudio", source: "Sonstige", monthlyValue: 1500, stageId: "lead", updatedAt: "2026-06-15", lastActivityAt: null, activityStatus: "none" },
-  { id: "c5", name: "Müller Logistik GmbH", contactName: "Frau Müller", phone: "+4930555555", email: "office@mueller-logistik.de", city: "Berlin", category: "Industrie", source: "Google", monthlyValue: 2400, stageId: "vor_ort", updatedAt: "2026-06-17", lastActivityAt: "2026-06-17", activityStatus: "today" },
-  { id: "c6", name: "Stadtklinik Nord", contactName: "Verwaltung", phone: "+4930666666", email: "verwaltung@stadtklinik-nord.de", city: "Berlin", category: "Arztpraxis", source: "Google", monthlyValue: 3200, stageId: "angesprochen", updatedAt: "2026-06-14", lastActivityAt: "2026-06-21", activityStatus: "future" },
-  { id: "c7", name: "Werbeagentur Pixelwerk", contactName: "Jan Bauer", phone: "+4930777777", email: "hallo@pixelwerk.de", city: "Berlin", category: "Büro", source: "Sonstige", monthlyValue: 480, stageId: "gewonnen", updatedAt: "2026-06-10", lastActivityAt: null, activityStatus: "none" },
-  { id: "c8", name: "Café Central", contactName: "Inhaber", phone: "+4930888888", email: "info@cafecentral.de", city: "Berlin", category: "Sonstige", source: "Sonstige", monthlyValue: 300, stageId: "verloren", updatedAt: "2026-06-08", lastActivityAt: "2026-06-05", activityStatus: "overdue" },
-];
 
 export function sortCustomers(list: Customer[], key: SortKey): Customer[] {
   const copy = [...list];

@@ -11,6 +11,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { Plus } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,16 +28,20 @@ import {
   type CustomerFormValues,
 } from "@/components/pipeline/customer-form-dialog";
 import {
-  SAMPLE_CUSTOMERS,
   STAGES,
   sortCustomers,
   type Customer,
   type SortKey,
   type StageId,
 } from "@/lib/pipeline/data";
+import { createCustomer, updateCustomerStage } from "@/lib/pipeline/actions";
 
-export function PipelineBoard() {
-  const [customers, setCustomers] = useState<Customer[]>(SAMPLE_CUSTOMERS);
+export function PipelineBoard({
+  initialCustomers,
+}: {
+  initialCustomers: Customer[];
+}) {
+  const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
   const [sortKey, setSortKey] = useState<SortKey>("last_activity");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -49,77 +54,83 @@ export function PipelineBoard() {
     setActiveId(String(event.active.id));
   }
 
-  function handleDragEnd(event: DragEndEvent) {
+  async function handleDragEnd(event: DragEndEvent) {
     setActiveId(null);
     const { active, over } = event;
     if (!over) return;
-    const targetStage = over.id as StageId;
+
+    const id = String(active.id);
+    const target = over.id as StageId;
+    const moved = customers.find((c) => c.id === id);
+    if (!moved || moved.stageId === target) return;
+
+    const originalStage = moved.stageId;
     setCustomers((prev) =>
-      prev.map((c) =>
-        c.id === active.id
-          ? { ...c, stageId: targetStage, updatedAt: new Date().toISOString() }
-          : c,
-      ),
+      prev.map((c) => (c.id === id ? { ...c, stageId: target } : c)),
     );
+
+    const res = await updateCustomerStage(id, target);
+    if (!res.ok) {
+      setCustomers((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, stageId: originalStage } : c)),
+      );
+      toast.error(res.error);
+    }
   }
 
-  function handleCreate(values: CustomerFormValues) {
-    const newCustomer: Customer = {
-      id: crypto.randomUUID(),
-      stageId: "kalter_kontakt",
-      updatedAt: new Date().toISOString(),
-      lastActivityAt: null,
-      activityStatus: "none",
-      ...values,
-    };
-    setCustomers((prev) => [newCustomer, ...prev]);
+  async function handleCreate(values: CustomerFormValues) {
+    const res = await createCustomer(values);
+    if (res.ok) {
+      setCustomers((prev) => [res.data, ...prev]);
+      toast.success("Kunde angelegt");
+    } else {
+      toast.error(res.error);
+    }
   }
 
   const activeCustomer = customers.find((c) => c.id === activeId) ?? null;
 
-  if (customers.length === 0) {
-    return (
-      <div className="flex h-full flex-col">
-        <Header sortKey={sortKey} onSort={setSortKey} onAdd={() => setCreateOpen(true)} />
+  return (
+    <div className="flex h-full flex-col">
+      <Header
+        sortKey={sortKey}
+        onSort={setSortKey}
+        onAdd={() => setCreateOpen(true)}
+      />
+
+      {customers.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
           <p className="text-muted-foreground">Noch keine Kunden.</p>
           <Button onClick={() => setCreateOpen(true)}>
             <Plus /> Neuer Kunde
           </Button>
         </div>
-        <CustomerFormDialog
-          open={createOpen}
-          onOpenChange={setCreateOpen}
-          onSubmit={handleCreate}
-        />
-      </div>
-    );
-  }
+      ) : (
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex flex-1 divide-x divide-border overflow-x-auto pb-4">
+            {STAGES.map((stage) => (
+              <PipelineColumn
+                key={stage.id}
+                stage={stage}
+                customers={sortCustomers(
+                  customers.filter((c) => c.stageId === stage.id),
+                  sortKey,
+                )}
+              />
+            ))}
+          </div>
+          <DragOverlay>
+            {activeCustomer ? (
+              <CustomerCardView customer={activeCustomer} />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      )}
 
-  return (
-    <div className="flex h-full flex-col">
-      <Header sortKey={sortKey} onSort={setSortKey} onAdd={() => setCreateOpen(true)} />
-      <DndContext
-        sensors={sensors}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex flex-1 divide-x divide-border overflow-x-auto pb-4">
-          {STAGES.map((stage) => (
-            <PipelineColumn
-              key={stage.id}
-              stage={stage}
-              customers={sortCustomers(
-                customers.filter((c) => c.stageId === stage.id),
-                sortKey,
-              )}
-            />
-          ))}
-        </div>
-        <DragOverlay>
-          {activeCustomer ? <CustomerCardView customer={activeCustomer} /> : null}
-        </DragOverlay>
-      </DndContext>
       <CustomerFormDialog
         open={createOpen}
         onOpenChange={setCreateOpen}

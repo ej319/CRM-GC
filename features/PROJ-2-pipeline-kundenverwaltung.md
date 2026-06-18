@@ -139,6 +139,13 @@ Speicherort: Supabase (PostgreSQL).
 - **Vorschau-Hinweis:** Es werden **Beispiel-Kunden** angezeigt; Anlegen/Verschieben passieren bisher nur im Browser-Speicher, Speichern/Löschen/Phase auf der Detailseite zeigen einen Hinweis-Toast.
 - **Offen für `/backend`:** Tabellen `pipeline_stages` + `customers` mit RLS; echtes Anlegen/Verschieben/Bearbeiten/Löschen persistieren; Beispieldaten durch echte DB-Daten ersetzen; Detailseite an die Datenbank anbinden.
 
+## Backend-Implementierung (Stand 2026-06-18)
+- **Datenbank:** Tabellen `pipeline_stages` (8 Phasen geseedet) + `customers`, beide mit Row Level Security. Zugriff nur für freigeschaltete Nutzer (mit Profil); geteilte Team-Daten. Trigger `set_updated_at`; Indizes auf `stage_id` und `updated_at`. Security-Advisor sauber (außer der bekannten, nicht zutreffenden Passwort-Warnung).
+- **Server-Code:** `src/lib/pipeline/schema.ts` (Zod-Validierung) + `schema.test.ts` (5 Unit-Tests, grün); `queries.ts` (`getCustomers`/`getCustomer`, Mapper DB→Customer); `actions.ts` (Server Actions `createCustomer`, `updateCustomer`, `updateCustomerStage`, `deleteCustomer` mit Auth-Prüfung, Validierung, `revalidatePath`).
+- **Frontend angebunden:** `page.tsx` lädt Kunden server-seitig; Board nutzt echte Aktionen (Anlegen; optimistisches Verschieben mit Rücksprung bei Fehler); Detailseite lädt den echten Kunden und speichert/ändert die Phase/löscht über Aktionen. Beispieldaten entfernt.
+- **Verifikation:** `tsc --noEmit` sauber; `npm test` 5/5; Dev-Server kompiliert ohne Fehler. Hinweis: Das Board startet **leer** (die Datenbank wurde in PROJ-1 zurückgesetzt) – neue Kunden über den „+"-Button anlegen.
+- **Offen (PROJ-5):** Aktivitäts-Marker und die Sortierung „Letzte Aktivität" an echte Aktivitätsdaten anbinden (aktuell zeigen alle Karten „keine Aktivität").
+
 ## QA Test Results
 _To be added by /qa_
 

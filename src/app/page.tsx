@@ -1,10 +1,12 @@
 import { AppShell } from "@/components/app-shell";
 import { PipelineBoard } from "@/components/pipeline/pipeline-board";
+import { getCustomers } from "@/lib/pipeline/queries";
 
-export default function Home() {
+export default async function Home() {
+  const customers = await getCustomers();
   return (
     <AppShell>
-      <PipelineBoard />
+      <PipelineBoard initialCustomers={customers} />
     </AppShell>
   );
 }

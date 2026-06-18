@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/app-shell";
 import { CustomerDetail } from "@/components/pipeline/customer-detail";
+import { getCustomer } from "@/lib/pipeline/queries";
 
 export default async function KundePage({
   params,
@@ -7,9 +8,10 @@ export default async function KundePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const customer = await getCustomer(id);
   return (
     <AppShell>
-      <CustomerDetail customerId={id} />
+      <CustomerDetail customer={customer} />
     </AppShell>
   );
 }

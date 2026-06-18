@@ -33,33 +33,106 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { SAMPLE_CUSTOMERS, STAGES, type StageId } from "@/lib/pipeline/data";
+import {
+  CATEGORY_OPTIONS,
+  SOURCE_OPTIONS,
+  STAGES,
+  type Customer,
+  type StageId,
+} from "@/lib/pipeline/data";
+import {
+  deleteCustomer,
+  updateCustomer,
+  updateCustomerStage,
+} from "@/lib/pipeline/actions";
 
-function notImplemented() {
-  toast.info(
-    "Das Speichern wird mit der Datenbank im nächsten Schritt (/backend) aktiv.",
-  );
-}
-
-export function CustomerDetail({ customerId }: { customerId: string }) {
-  const customer = SAMPLE_CUSTOMERS.find((c) => c.id === customerId);
-  const [stageId, setStageId] = useState<StageId>(
-    customer?.stageId ?? "kalter_kontakt",
-  );
-
+export function CustomerDetail({ customer }: { customer: Customer | null }) {
   if (!customer) {
     return (
       <div className="mx-auto max-w-md py-12 text-center">
         <p className="text-muted-foreground">
-          Dieser Kunde ist in der Vorschau nicht hinterlegt. In dieser Version
-          gibt es nur Beispiel-Kunden – die echte Speicherung kommt mit dem
-          nächsten Schritt (/backend).
+          Dieser Kunde wurde nicht gefunden (vielleicht wurde er gelöscht).
         </p>
         <Button asChild variant="outline" className="mt-4">
           <Link href="/">Zurück zum Board</Link>
         </Button>
       </div>
     );
+  }
+  return <CustomerDetailForm customer={customer} />;
+}
+
+function CustomerDetailForm({ customer }: { customer: Customer }) {
+  const [form, setForm] = useState({
+    name: customer.name,
+    contactName: customer.contactName ?? "",
+    phone: customer.phone ?? "",
+    email: customer.email ?? "",
+    address: customer.address ?? "",
+    plz: customer.plz ?? "",
+    city: customer.city ?? "",
+    category: customer.category ?? "",
+    source: customer.source ?? "",
+    monthlyValue: customer.monthlyValue?.toString() ?? "",
+  });
+  const [stageId, setStageId] = useState<StageId>(customer.stageId);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  function set(key: keyof typeof form, value: string) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function handleSave() {
+    if (!form.name.trim()) {
+      toast.error("Firmenname ist erforderlich");
+      return;
+    }
+    const mv = form.monthlyValue.trim();
+    if (mv && Number.isNaN(Number(mv.replace(",", ".")))) {
+      toast.error("Monatswert muss eine Zahl sein");
+      return;
+    }
+    setSaving(true);
+    const res = await updateCustomer(customer.id, {
+      name: form.name,
+      contactName: form.contactName,
+      phone: form.phone,
+      email: form.email,
+      address: form.address,
+      plz: form.plz,
+      city: form.city,
+      category: form.category,
+      source: form.source,
+      monthlyValue: mv ? Number(mv.replace(",", ".")) : undefined,
+    });
+    setSaving(false);
+    if (res.ok) toast.success("Gespeichert");
+    else toast.error(res.error);
+  }
+
+  async function handleStageChange(value: string) {
+    const newStage = value as StageId;
+    const previous = stageId;
+    setStageId(newStage);
+    const res = await updateCustomerStage(customer.id, newStage);
+    if (res.ok) toast.success("Phase geändert");
+    else {
+      setStageId(previous);
+      toast.error(res.error);
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    const res = await deleteCustomer(customer.id);
+    if (res.ok) {
+      toast.success("Kunde gelöscht");
+      window.location.href = "/";
+    } else {
+      setDeleting(false);
+      toast.error(res.error);
+    }
   }
 
   return (
@@ -72,7 +145,7 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
         </Button>
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="sm">
+            <Button variant="destructive" size="sm" disabled={deleting}>
               <Trash2 className="mr-1 h-4 w-4" /> Löschen
             </Button>
           </AlertDialogTrigger>
@@ -86,7 +159,7 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-              <AlertDialogAction onClick={notImplemented}>
+              <AlertDialogAction onClick={handleDelete}>
                 Löschen
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -94,7 +167,7 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
         </AlertDialog>
       </div>
 
-      <h1 className="text-2xl font-semibold">{customer.name}</h1>
+      <h1 className="text-2xl font-semibold">{form.name || customer.name}</h1>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -102,16 +175,17 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
             <CardTitle className="text-base">Kundendaten</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Firmenname" value={customer.name} />
+            <div className="space-y-1.5">
+              <Label htmlFor="d-name">Firmenname *</Label>
+              <Input
+                id="d-name"
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+              />
+            </div>
             <div className="space-y-1.5">
               <Label>Phase</Label>
-              <Select
-                value={stageId}
-                onValueChange={(v) => {
-                  setStageId(v as StageId);
-                  notImplemented();
-                }}
-              >
+              <Select value={stageId} onValueChange={handleStageChange}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -124,21 +198,89 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
                 </SelectContent>
               </Select>
             </div>
-            <Field label="Ansprechpartner" value={customer.contactName ?? ""} />
-            <Field label="Telefon" value={customer.phone ?? ""} />
-            <Field label="E-Mail" value={customer.email ?? ""} />
-            <Field
-              label="Monatswert (€)"
-              value={customer.monthlyValue?.toString() ?? ""}
+            <TextField
+              id="d-contact"
+              label="Ansprechpartner"
+              value={form.contactName}
+              onChange={(v) => set("contactName", v)}
             />
-            <Field label="Kategorie" value={customer.category ?? ""} />
-            <Field label="Quelle" value={customer.source ?? ""} />
-            <Field label="Adresse" value={customer.address ?? ""} />
-            <Field label="PLZ" value={customer.plz ?? ""} />
-            <Field label="Ort" value={customer.city ?? ""} />
+            <TextField
+              id="d-phone"
+              label="Telefon"
+              value={form.phone}
+              onChange={(v) => set("phone", v)}
+            />
+            <TextField
+              id="d-email"
+              label="E-Mail"
+              value={form.email}
+              onChange={(v) => set("email", v)}
+            />
+            <TextField
+              id="d-value"
+              label="Monatswert (€)"
+              value={form.monthlyValue}
+              onChange={(v) => set("monthlyValue", v)}
+            />
+            <div className="space-y-1.5">
+              <Label>Kategorie</Label>
+              <Select
+                value={form.category || undefined}
+                onValueChange={(v) => set("category", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Wählen…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORY_OPTIONS.map((o) => (
+                    <SelectItem key={o} value={o}>
+                      {o}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Quelle</Label>
+              <Select
+                value={form.source || undefined}
+                onValueChange={(v) => set("source", v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Wählen…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SOURCE_OPTIONS.map((o) => (
+                    <SelectItem key={o} value={o}>
+                      {o}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <TextField
+              id="d-address"
+              label="Adresse"
+              value={form.address}
+              onChange={(v) => set("address", v)}
+            />
+            <TextField
+              id="d-plz"
+              label="PLZ"
+              value={form.plz}
+              onChange={(v) => set("plz", v)}
+            />
+            <TextField
+              id="d-city"
+              label="Ort"
+              value={form.city}
+              onChange={(v) => set("city", v)}
+            />
           </CardContent>
           <div className="flex justify-end px-6 pb-6">
-            <Button onClick={notImplemented}>Speichern</Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? "Speichern…" : "Speichern"}
+            </Button>
           </div>
         </Card>
 
@@ -151,7 +293,9 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">Noch nichts vorhanden.</p>
+            <p className="text-sm text-muted-foreground">
+              Noch nichts vorhanden.
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -159,11 +303,21 @@ export function CustomerDetail({ customerId }: { customerId: string }) {
   );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function TextField({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <Input defaultValue={value} />
+      <Label htmlFor={id}>{label}</Label>
+      <Input id={id} value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }

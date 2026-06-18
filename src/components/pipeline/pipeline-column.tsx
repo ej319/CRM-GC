@@ -16,24 +16,24 @@ export function PipelineColumn({
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
   return (
-    <div className="flex w-72 shrink-0 flex-col">
+    <div className="flex min-h-0 min-w-[180px] flex-1 flex-col px-2">
       <div className="mb-2 flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <span
-            className="h-2.5 w-2.5 rounded-full"
+            className="h-2.5 w-2.5 shrink-0 rounded-full"
             style={{ backgroundColor: stage.color }}
           />
-          <h2 className="text-sm font-semibold">{stage.name}</h2>
+          <h2 className="truncate text-sm font-semibold">{stage.name}</h2>
         </div>
-        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+        <span className="ml-1 shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
           {customers.length}
         </span>
       </div>
       <div
         ref={setNodeRef}
         className={cn(
-          "flex min-h-24 flex-1 flex-col gap-2 rounded-lg border border-dashed p-2 transition-colors",
-          isOver ? "border-primary bg-primary/5" : "border-transparent bg-muted/40",
+          "flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-md p-1.5 transition-colors",
+          isOver && "bg-primary/10",
         )}
       >
         {customers.map((customer) => (

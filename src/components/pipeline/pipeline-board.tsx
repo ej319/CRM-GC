@@ -104,7 +104,7 @@ export function PipelineBoard() {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex flex-1 gap-4 overflow-x-auto pb-4">
+        <div className="flex flex-1 divide-x divide-border overflow-x-auto pb-4">
           {STAGES.map((stage) => (
             <PipelineColumn
               key={stage.id}

@@ -1,8 +1,8 @@
 # PROJ-2: Pipeline-basierte Kundenverwaltung
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-06-17
-**Last Updated:** 2026-06-17
+**Last Updated:** 2026-06-18
 
 ## Dependencies
 - Requires: PROJ-1 (Supabase Infrastruktur & Auth) — Login + Datenbank
@@ -147,7 +147,80 @@ Speicherort: Supabase (PostgreSQL).
 - **Offen (PROJ-5):** Aktivitäts-Marker und die Sortierung „Letzte Aktivität" an echte Aktivitätsdaten anbinden (aktuell zeigen alle Karten „keine Aktivität").
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-06-18
+**App URL:** http://localhost:3000
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+- [x] **AC-1 – 8 Phasen-Spalten mit Karten:** Board rendert alle 8 Phasen in fester Reihenfolge; Karten werden nach `stage_id` der jeweiligen Spalte zugeordnet.
+- [x] **AC-2 – Leer-Zustand:** Bei 0 Kunden erscheint „Noch keine Kunden" + grüner „+"-Button.
+- [x] **AC-3 – Neuer Kunde nur mit Firmenname → Phase „Kalter Kontakt":** Anlegen ohne weitere Felder funktioniert; DB-Default `kalter_kontakt` setzt die Startphase.
+- [x] **AC-4 – Leerer Firmenname wird abgelehnt:** Zod-Validierung (`min(1)`) im Dialog **und** serverseitig in `createCustomer`; Fehlermeldung wird angezeigt, es wird nicht gespeichert.
+- [x] **AC-5 – Drag-and-Drop bleibt nach Neuladen erhalten:** Optimistisches Verschieben + `updateCustomerStage` persistiert in der DB + `revalidatePath`. Manuell bestätigt („klappt"), Logik unit-getestet.
+- [x] **AC-6 – Klick auf Karte öffnet Detailseite im neuen Tab:** `window.open('/kunde/[id]', '_blank')`; eigene Route pro Kunde.
+- [x] **AC-7 – Felder ändern + speichern → auf Board sichtbar:** `updateCustomer` speichert + `revalidatePath('/')`. Hinweis: ein **bereits offener** Board-Tab aktualisiert sich erst nach Neuladen (siehe BUG-1).
+- [x] **AC-8 – Löschen mit Sicherheitsabfrage:** `AlertDialog` bestätigt, `deleteCustomer` entfernt den Datensatz, danach Rücksprung aufs Board.
+- [x] **AC-9 – Karte zeigt Ort, Kategorie, Monatswert:** Werden angezeigt (Kategorie als farbiges Etikett, Wert in €-Format), leere Felder bleiben leer.
+- [x] **AC-10 – Gelbes Warndreieck ohne geplante Aktivität:** Alle Karten zeigen das Warndreieck (Status „none"), bis PROJ-5 echte Aktivitätsdaten liefert.
+- [x] **AC-11 – Sortierung pro Spalte:** Alphabet / Letzte Aktivität / Auftragswert / Kategorie werden je Spalte angewandt; unit-getestet.
+
+**Ergebnis: 11/11 Akzeptanzkriterien bestanden.**
+
+### Edge Cases Status
+
+- [x] **Viele Karten in einer Spalte:** Spalteninhalt ist vertikal scrollbar (`overflow-y-auto`).
+- [x] **Karte nur mit Firmenname:** Wird angezeigt, optionale Felder bleiben leer.
+- [x] **Speichern beim Verschieben schlägt fehl:** Karte springt sichtbar in die alte Phase zurück + Fehler-Toast.
+- [x] **Gleichzeitige Bearbeitung:** „Letzte Änderung gewinnt" (bewusst einfach, wie spezifiziert).
+- [x] **Sortierung „Letzte Aktivität" ohne Aktivität:** Diese Kunden stehen oben (unit-getestet).
+- [x] **Mobile statt Drag-and-Drop:** Phase ist auf der Detailseite per Auswahl änderbar.
+- [~] **Löschen mit später anhängenden Aktivitäten/Notizen (CASCADE):** Greift erst, wenn diese Tabellen existieren (PROJ-5/PROJ-6) und per `ON DELETE CASCADE` an `customers` hängen. Aktuell wird nur der Kunde gelöscht; die Sicherheitsabfrage weist auf die Endgültigkeit hin.
+
+### Security Audit Results
+- [x] **Authentifizierung:** Board (`/`) und Detailseite (`/kunde/[id]`) sind ohne Login nicht erreichbar (Middleware-Redirect → `/login`); jede Server Action prüft zusätzlich `requireUser()`. Per E2E abgesichert (Chromium + Mobile Chrome).
+- [x] **Autorisierung / RLS:** Alle `customers`-Policies (SELECT/INSERT/UPDATE/DELETE) verlangen `authenticated` **und** ein vorhandenes Profil (= freigeschaltete Nutzer). `pipeline_stages` nur lesbar. Geteilte Team-Daten – wie spezifiziert.
+- [x] **Eingabe-Validierung / XSS:** React escaped allen Text; keine `dangerouslySetInnerHTML`. Kategorie-Farbe stammt aus einer festen Map mit Fallback (keine CSS-Injektion über frei eingegebene Werte).
+- [x] **SQL-Injektion:** Ausschließlich parametrisierte Supabase-Aufrufe (`.eq`, `.insert`, `.update`), keine String-Verkettung.
+- [x] **Secrets:** Nur der öffentliche (publishable) Supabase-Schlüssel landet im Client – unkritisch; kein Service-Key im Frontend.
+- [i] **Rate Limiting:** Nicht implementiert – für ein internes CRM mit wenigen freigeschalteten Nutzern derzeit nicht erforderlich.
+
+### Automated Tests
+- **Unit (Vitest): 14/14 grün** — Eingabe-Validierung (`schema.test.ts`, 5), Sortierlogik (`data.test.ts`, 5), DB→App-Mapping (`queries.test.ts`, 4).
+- **E2E (Playwright): 18/18 grün** — Zugangsschutz für Board + Detailseite auf Chromium **und** Mobile Chrome (`tests/PROJ-2-pipeline-kundenverwaltung.spec.ts`). Die angemeldeten Abläufe lassen sich wegen des echten Google-Logins nicht automatisieren und wurden manuell verifiziert.
+- **Regression:** PROJ-1-Tests (Login/Zugangsschutz) weiterhin grün.
+- **Test-Infrastruktur:** Mobiler Test-Browser von WebKit/„Mobile Safari" auf **Mobile Chrome (Pixel 5)** umgestellt – nutzt den bereits installierten Chromium, robuster unter Windows, keine zusätzliche Browser-Installation nötig.
+
+### Bugs Found
+
+#### BUG-1: Detail-Änderungen erscheinen im offenen Board-Tab erst nach Neuladen
+- **Severity:** Low
+- **Schritte:** Board in Tab A offen lassen → Kunde in Tab B (Detailseite) ändern/speichern → zurück zu Tab A.
+- **Erwartet:** Karte aktualisiert sich automatisch. **Tatsächlich:** Erst nach Neuladen von Tab A sichtbar (Board hält lokalen Client-Zustand; Live-Sync zwischen Tabs ist nicht Teil von PROJ-2).
+- **Priorität:** Nice to have (echte Live-Synchronisation ggf. später).
+
+#### BUG-2: `updateCustomerStage` meldet Erfolg auch bei unbekannter Kunden-ID
+- **Severity:** Low
+- **Schritte:** Phasen-Update mit nicht existierender ID auslösen.
+- **Erwartet:** Fehler. **Tatsächlich:** `update ... eq()` trifft 0 Zeilen, wirft keinen Fehler → `ok:true`. Tritt im Normalbetrieb nicht auf (IDs stammen immer aus echten Karten).
+- **Priorität:** Fix in next sprint (optional `.select()`-Prüfung).
+
+#### BUG-3: Ungültige E-Mail auf der Detailseite erst serverseitig abgefangen
+- **Severity:** Low
+- **Schritte:** Detailseite → ungültige E-Mail eingeben → Speichern.
+- **Erwartet:** Inline-Hinweis am Feld (wie im Anlege-Dialog). **Tatsächlich:** Serverseitige Validierung greift, Fehler erscheint als Toast „Ungültige E-Mail" (Eingabe bleibt erhalten).
+- **Priorität:** Nice to have.
+
+#### INFO: Supabase-Hinweis „Leaked Password Protection deaktiviert"
+- Kein Bug für dieses Feature: Die App nutzt ausschließlich Google-Login, keine Passwörter. Der Hinweis ist nicht zutreffend.
+
+### Summary
+- **Acceptance Criteria:** 11/11 bestanden
+- **Bugs Found:** 3 (0 kritisch, 0 hoch, 0 mittel, 3 niedrig) + 1 informativer Hinweis
+- **Security:** Bestanden (Auth + RLS + Validierung + parametrisierte Queries)
+- **Production Ready:** **YES**
+- **Empfehlung:** Deploybar. Die 3 niedrigprioren Punkte blockieren nicht; BUG-2 ggf. später härten, BUG-1 löst sich mit optionaler Live-Synchronisation.
 
 ## Deployment
 _To be added by /deploy_

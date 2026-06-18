@@ -12,7 +12,10 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'Mobile Safari', use: { ...devices['iPhone 13'] } },
+    // Mobile-Ansicht über Mobile Chrome (nutzt den bereits installierten
+    // Chromium-Browser) statt WebKit/Mobile Safari – robuster unter Windows
+    // und keine zusätzliche Browser-Installation nötig.
+    { name: 'Mobile Chrome', use: { ...devices['Pixel 5'] } },
   ],
   webServer: {
     command: 'npm run dev',

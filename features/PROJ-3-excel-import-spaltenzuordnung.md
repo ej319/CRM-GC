@@ -164,6 +164,19 @@ Speicherort: Supabase (PostgreSQL), geteilte Team-Daten, geschützt durch Row Le
 ### Einmalige Einrichtung durch den Nutzer
 - Für den KI-Vorschlag wird ein **Anthropic-API-Schlüssel** gebraucht. Er wird einmalig in `.env.local` als `ANTHROPIC_API_KEY` hinterlegt (der Agent kann diese Datei aus Sicherheitsgründen nicht selbst beschreiben — der Nutzer legt sie an). Ohne Schlüssel bleibt der Import voll nutzbar, nur ohne KI-Vorschlag.
 
+## Frontend-Implementierung (Stand 2026-06-19)
+- **Neue Import-Seite `/import`** (erreichbar über das Nutzer-Menü „Daten importieren") mit Schritt-für-Schritt-Assistent: Datei → Spalten → Werte → Vorschau → Import; Fortschrittsanzeige + Ergebnis.
+- **Datei lesen im Browser** über `xlsx` (SheetJS): Excel **und** CSV; erste nicht-leere Zeile = Überschriften.
+- **Spalten-Auto-Zuordnung** per Stichwort-Erkennung (deutsche + Pipedrive-Namen); „Firmenname" ist Pflicht (sonst ist „Weiter" gesperrt).
+- **Werte-Zuordnung** für Kategorie/Quelle pro unterschiedlichem Wert; Vorschlag vorausgewählt (lokal: `localGuessCategory`), „Wert übernehmen" oder „Leer lassen" wählbar.
+- **Vorschau** mit Zusammenfassung (importieren / Dubletten / ohne Name / Warnungen) + Tabelle der ersten 15 Zeilen; alle Importe → „Kalter Kontakt".
+- **Validierung/Toleranz** wie spezifiziert: ohne Firmenname → übersprungen; ungültige E-Mail / Monatswert → Feld leer + Warnung; deutsche Zahlenformate erkannt; Dubletten innerhalb der Datei erkannt.
+- **Import-Verlauf** mit „Rückgängig machen" (Sicherheitsabfrage) als Oberfläche vorhanden.
+- **Neue Dateien:** `src/lib/import/{parse,mapping}.ts` (+ `mapping.test.ts`, 12 Tests); `src/components/import/{import-wizard,step-file,step-columns,step-values,step-preview,step-run,import-history}.tsx`; `src/app/import/page.tsx`. Geändert: `src/components/user-menu.tsx` (Menüpunkt).
+- **Verifikation:** `tsc --noEmit` ohne Fehler; `npm test` 26/26 grün; `npm run build` erfolgreich (Route `/import` als dynamisch gelistet).
+- **Vorschau-Hinweis:** Das eigentliche Speichern läuft aktuell im **Vorschau-Modus** (simulierter Fortschritt) – es wird noch nichts in der Datenbank gespeichert. Der KI-Vorschlag ist bisher der lokale Fallback.
+- **Offen für `/backend`:** Tabelle `import_runs` + Herkunfts-Spalte an `customers`; Server-Aktion zum **blockweisen Speichern** (inkl. Dubletten-Prüfung gegen den Bestand); **KI-Vorschlag** (Claude/Haiku) als Server-Aktion mit `ANTHROPIC_API_KEY` (Fallback: lokaler Vorschlag); Import-Verlauf + **Rückgängig machen** an echte Daten anbinden; Vorschau-Modus-Hinweis entfernen. **Sicherheitshinweis:** `xlsx@0.18.5` (npm) hat bekannte Advisories beim Parsen *bösartig präparierter* Dateien – für eigene Exporte unkritisch; optional später auf den SheetJS-CDN-Build wechseln.
+
 ## QA Test Results
 _To be added by /qa_
 

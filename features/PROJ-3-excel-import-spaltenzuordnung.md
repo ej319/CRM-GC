@@ -188,7 +188,83 @@ Speicherort: Supabase (PostgreSQL), geteilte Team-Daten, geschützt durch Row Le
 - **Sicherheitshinweis (offen):** `xlsx@0.18.5` (npm) hat bekannte Advisories beim Parsen *bösartig präparierter* Dateien – für eigene Exporte unkritisch; optional später auf den SheetJS-CDN-Build wechseln (erfordert Freigabe des CDN-Installationsbefehls).
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-06-19
+**App URL:** http://localhost:3000
+**Tester:** QA Engineer (AI)
+
+> Hinweis: Die Import-Seite liegt vollständig hinter dem Google-Login. Ein echter Google-Login lässt sich nicht automatisiert durchführen; daher sind die **Zugangsschutz-Pfade per E2E** abgesichert, die **Logik per Unit-Tests**, das **Datenmodell direkt in Supabase** geprüft. Der **angemeldete Klickdurchlauf mit echter Datei** wird dem Nutzer als finale Abnahme empfohlen.
+
+### Acceptance Criteria Status
+
+- [x] **AC-1 – Excel/CSV hochladen:** `StepFile` akzeptiert `.xlsx/.csv`; `parseSpreadsheet` (xlsx) liest beide Formate, erste nicht-leere Zeile = Überschriften.
+- [x] **AC-2 – Spalten-Auto-Vorschlag:** `autoSuggestMapping` ordnet deutsche + Pipedrive-Spalten zu (unit-getestet, 3 Tests).
+- [x] **AC-3 – Spalten manuell zuordnen / „nicht importieren":** `StepColumns` mit Auswahl je Spalte inkl. „— nicht importieren —".
+- [x] **AC-4 – Ohne Firmenname kein Weiter:** „Weiter" ist gesperrt + Hinweis, solange keine Spalte = Firmenname (`nameMapped`).
+- [x] **AC-5 – Kategorie/Quelle-Vorschlag pro Wert:** `StepValues` + KI-Vorschlag (`suggestValueMappings`/`parseSuggestionMap`, unit-getestet) mit lokalem Fallback; „übernehmen"/„leer lassen" wählbar.
+- [x] **AC-6 – Vorschau + Zusammenfassung:** `StepPreview` zeigt Zähler (importieren/Dubletten/ohne Name/Warnungen, aus `prepareRows`, unit-getestet) + erste 15 Zeilen.
+- [x] **AC-7 – Nichts gespeichert ohne „Importieren":** Speicher-Aktionen laufen ausschließlich in `startImport` (Button-Klick).
+- [x] **AC-8 – Fortschritt + Ergebnis:** Blockweiser Import (300/Block) setzt den Fortschrittsbalken; `StepRun` zeigt das Ergebnis.
+- [x] **AC-9 – Vorhandene Firma übersprungen + gezählt:** `importCustomersBatch` prüft kleingeschriebene Firmennamen gegen den Bestand; übersprungene zählen in „skipped".
+- [x] **AC-10 – Doppelter Name in der Datei → nur einmal:** `prepareRows` markiert Folgetreffer als `dupe-file` (unit-getestet).
+- [x] **AC-11 – Ohne Firmenname → übersprungen + gemeldet:** `prepareRows` Status `error` (unit-getestet).
+- [x] **AC-12 – Kleiner Feldfehler → Kunde angelegt, Feld leer + Warnung:** `prepareRows` (ungültige E-Mail / Zahl) unit-getestet.
+- [x] **AC-13 – Nach Import in „Kalter Kontakt":** Insert setzt `stage_id = 'kalter_kontakt'`.
+- [x] **AC-14 – Falsche/leere Datei → verständliche Fehlermeldung:** `parseSpreadsheet` wirft deutsche Meldungen (keine Tabelle / keine Daten / nur Überschriften); `StepFile` zeigt sie an.
+- [x] **AC-15 – Import rückgängig:** `undoImport` löscht genau `customers` mit `import_run_id = runId` und markiert den Vorgang als „undone" (Datenmodell in der DB verifiziert).
+- [x] **AC-16 – Rückgängig nur nach Bestätigung:** `AlertDialog`-Sicherheitsabfrage vor `undoImport`.
+- [x] **AC-17 – Rückgängig robust bei bereits gelöschten:** `delete().eq()` entfernt die übrigen, ohne Fehler.
+
+**Ergebnis: 17/17 Akzeptanzkriterien abgedeckt** (Logik + Zugangsschutz automatisiert; finaler Live-Klickdurchlauf empfohlen).
+
+### Edge Cases Status
+
+- [x] **>2.000 Zeilen:** Blockweise (300/Block) mit Fortschritt; Logik vorhanden (nicht mit Riesendatei live lastgetestet).
+- [x] **Import bricht mittendrin ab:** Bereits gespeicherte bleiben; `finalizeImportRun` schreibt die Teil-Zahlen; ein erneuter Import überspringt sie als Dublette.
+- [x] **Deutsche Zahlenformate (1.200,00 €):** `parseGermanNumber` unit-getestet.
+- [~] **Umlaute in CSV (UTF-8):** xlsx liest UTF-8; nicht gesondert unit-getestet → beim Live-Klickdurchlauf mitprüfen.
+- [x] **Viele unterschiedliche Kategorie-Werte:** Zuordnung bleibt pro Wert (nicht pro Kunde).
+- [x] **Rückgängig nach Bearbeiten/Verschieben:** Löschung nach Herkunft (`import_run_id`); Abfrage warnt darauf hin.
+- [x] **Bereits rückgängig gemachter Import:** Button entfällt bei Status „undone".
+- [x] **Spätere Verlauf-Daten (PROJ-4 ff.):** `customers.import_run_id` ist `ON DELETE SET NULL` (in der DB verifiziert); künftiger Verlauf hängt an `customers` und würde mit dem Kunden mitgelöscht.
+
+### Security Audit Results
+
+- [x] **Authentifizierung:** `/import` ohne Login nicht erreichbar (E2E-Redirect → `/login`, Chromium + Mobile Chrome); alle Server-Aktionen prüfen zusätzlich `requireUser()`.
+- [x] **Autorisierung / RLS:** `import_runs` mit RLS + 3 Policies (lesen/anlegen/ändern nur mit Profil = freigeschaltet); `customers`-Policies aus PROJ-2 gelten weiter. In Supabase verifiziert (RLS aktiv, Policies vorhanden).
+- [x] **Eingabe-Validierung / XSS:** Serverseitige Zod-Prüfung je Zeile; Anzeige ausschließlich über React (escaped), kein `dangerouslySetInnerHTML`.
+- [x] **SQL-Injektion:** Nur parametrisierte Supabase-Aufrufe (`.insert`, `.delete`, `.eq`, `.select`).
+- [x] **Secrets:** `ANTHROPIC_API_KEY` wird **ausschließlich serverseitig** genutzt (in `actions.ts`), nie an den Browser gegeben.
+- [i] **Externer Datenabfluss (KI):** Beim KI-Vorschlag werden **nur die unterschiedlichen Kategorie-/Quelle-Werte** (z.B. „Marketingagentur") an Anthropic gesendet – keine Firmennamen, Kontakte oder sonstigen Kundendaten. Nur aktiv, wenn ein API-Schlüssel hinterlegt ist (vom Nutzer gewählt).
+- [i] **Rate Limiting:** Nicht implementiert – für ein internes CRM mit wenigen Nutzern derzeit nicht erforderlich (wie PROJ-2).
+
+### Automated Tests
+
+- **Unit (Vitest): 28/28 grün** – inkl. Import-Logik (`src/lib/import/mapping.test.ts`, 12): Auto-Mapping, Zahl-Erkennung, lokaler Vorschlag, Dubletten-/Fehler-/Warnungs-Erkennung, KI-Antwort-Auswertung.
+- **E2E (Playwright): 22/22 grün** – Zugangsschutz für `/import` auf Chromium + Mobile Chrome (`tests/PROJ-3-excel-import.spec.ts`); PROJ-1- und PROJ-2-Tests weiterhin grün (keine Regression).
+- **Datenmodell (Supabase):** `import_runs` RLS aktiv + 3 Policies; `customers.import_run_id` FK `ON DELETE SET NULL`; beide neuen Indizes vorhanden.
+- **Build:** `tsc --noEmit` sauber; `npm run build` erfolgreich.
+
+### Bugs Found
+
+#### LOW-1: Dubletten-Prüfung lädt pro Block alle vorhandenen Firmennamen
+- **Severity:** Low
+- Bei jedem Block fragt `importCustomersBatch` alle vorhandenen Firmennamen ab. Bei sehr großen Importen sind das mehrere Voll-Abfragen. Für die erwartete Datenmenge unkritisch; ggf. später optimieren (Namen einmal laden bzw. eindeutiger Index).
+
+#### INFO: Live-Klickdurchlauf ausstehend
+- Der angemeldete End-zu-End-Ablauf (echte Datei → Zuordnung → Speichern → Verlauf → Rückgängig) wurde wegen des echten Google-Logins **nicht automatisiert** geprüft. Empfehlung: einmal mit einer Test-Excel durchklicken (idealerweise mit hinterlegtem `ANTHROPIC_API_KEY`, um den KI-Vorschlag zu sehen).
+
+#### INFO: `xlsx@0.18.5` Advisories
+- Bekannte Schwachstellen beim Parsen *bösartig präparierter* Dateien. Für eigene Pipedrive-Exporte unkritisch; optional auf den SheetJS-CDN-Build wechseln.
+
+### Summary
+- **Acceptance Criteria:** 17/17 abgedeckt (Logik + Zugangsschutz automatisiert verifiziert)
+- **Bugs Found:** 1 niedrig + 2 informative Hinweise (0 kritisch, 0 hoch, 0 mittel)
+- **Security:** Bestanden (Auth + RLS + Validierung + parametrisierte Queries; Secret bleibt serverseitig)
+- **Production Ready:** **YES** (keine kritischen/hohen Fehler) – empfohlen: einmaliger Live-Klickdurchlauf mit Test-Datei vor dem Produktiv-Einsatz.
+
+## Deployment
+_To be added by /deploy_
 
 ## Deployment
 _To be added by /deploy_

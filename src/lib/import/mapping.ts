@@ -145,6 +145,38 @@ export function localGuessCategory(value: string): string {
   return "";
 }
 
+/** Ein Import-Vorgang aus dem Import-Verlauf (PROJ-3). */
+export interface ImportRun {
+  id: string;
+  createdAt: string;
+  fileName: string;
+  imported: number;
+  skipped: number;
+  warnings: number;
+  status: "completed" | "undone";
+}
+
+/**
+ * Wertet die KI-Antwort zum Kategorie-/Quelle-Vorschlag aus.
+ * Übernimmt pro Eingabewert nur Vorschläge, die zur erlaubten Optionsliste passen.
+ */
+export function parseSuggestionMap(
+  raw: unknown,
+  values: string[],
+  options: readonly string[],
+): Record<string, string> {
+  const result: Record<string, string> = {};
+  if (!raw || typeof raw !== "object") return result;
+  const obj = raw as Record<string, unknown>;
+  for (const value of values) {
+    const suggested = obj[value];
+    if (typeof suggested === "string" && options.includes(suggested)) {
+      result[value] = suggested;
+    }
+  }
+  return result;
+}
+
 export type RowStatus = "import" | "dupe-file" | "error";
 
 export interface PreparedRow {

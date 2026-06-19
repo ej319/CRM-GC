@@ -1,9 +1,10 @@
 import { AppShell } from "@/components/app-shell";
 import { ImportWizard } from "@/components/import/import-wizard";
 import { ImportHistory } from "@/components/import/import-history";
+import { getImportRuns } from "@/lib/pipeline/queries";
 
-export default function ImportPage() {
-  // Der Import-Verlauf wird mit dem Backend mit echten Daten gefüllt.
+export default async function ImportPage() {
+  const runs = await getImportRuns();
   return (
     <AppShell>
       <div className="mx-auto max-w-4xl space-y-8">
@@ -16,7 +17,7 @@ export default function ImportPage() {
         </div>
 
         <ImportWizard />
-        <ImportHistory runs={[]} />
+        <ImportHistory runs={runs} />
       </div>
     </AppShell>
   );

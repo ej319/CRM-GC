@@ -4,8 +4,35 @@ import {
   parseGermanNumber,
   localGuessCategory,
   getDistinctValues,
+  parseSuggestionMap,
   prepareRows,
 } from "./mapping";
+import { CATEGORY_OPTIONS } from "@/lib/pipeline/data";
+
+describe("parseSuggestionMap", () => {
+  it("übernimmt nur Vorschläge aus der erlaubten Optionsliste", () => {
+    const raw = {
+      Marketingagentur: "Büro",
+      Zahnarzt: "Arztpraxis",
+      Unfug: "Gibtsnicht",
+    };
+    const result = parseSuggestionMap(
+      raw,
+      ["Marketingagentur", "Zahnarzt", "Unfug"],
+      CATEGORY_OPTIONS,
+    );
+    expect(result["Marketingagentur"]).toBe("Büro");
+    expect(result["Zahnarzt"]).toBe("Arztpraxis");
+    expect(result["Unfug"]).toBeUndefined();
+  });
+
+  it("ist robust gegen Unsinn", () => {
+    expect(parseSuggestionMap(null, ["X"], CATEGORY_OPTIONS)).toEqual({});
+    expect(parseSuggestionMap("kein objekt", ["X"], CATEGORY_OPTIONS)).toEqual(
+      {},
+    );
+  });
+});
 
 describe("autoSuggestMapping", () => {
   it("ordnet gängige deutsche und Pipedrive-Spalten zu", () => {

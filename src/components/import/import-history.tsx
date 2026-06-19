@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Undo2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -22,28 +24,28 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-export interface ImportRun {
-  id: string;
-  createdAt: string;
-  fileName: string;
-  imported: number;
-  skipped: number;
-  warnings: number;
-  status: "completed" | "undone";
-}
+import { undoImport } from "@/lib/import/actions";
+import type { ImportRun } from "@/lib/import/mapping";
 
 interface ImportHistoryProps {
   runs: ImportRun[];
 }
 
-/**
- * Liste der bisherigen Importe mit „Rückgängig machen".
- * Das tatsächliche Rückgängigmachen wird mit dem Backend angebunden.
- */
+/** Liste der bisherigen Importe mit „Rückgängig machen". */
 export function ImportHistory({ runs }: ImportHistoryProps) {
-  function handleUndo() {
-    toast.info("Rückgängig machen wird mit dem Backend angebunden.");
+  const router = useRouter();
+  const [pendingId, setPendingId] = useState<string | null>(null);
+
+  async function handleUndo(runId: string) {
+    setPendingId(runId);
+    const res = await undoImport(runId);
+    setPendingId(null);
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    toast.success(`${res.data.deleted} importierte Kunden entfernt.`);
+    router.refresh();
   }
 
   return (
@@ -66,7 +68,9 @@ export function ImportHistory({ runs }: ImportHistoryProps) {
                 className="flex flex-wrap items-center justify-between gap-2 py-3"
               >
                 <div className="space-y-0.5">
-                  <p className="text-sm font-medium">{run.fileName}</p>
+                  <p className="text-sm font-medium">
+                    {run.fileName || "Import"}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {new Date(run.createdAt).toLocaleString("de-DE")} ·{" "}
                     {run.imported} importiert · {run.skipped} übersprungen
@@ -76,9 +80,15 @@ export function ImportHistory({ runs }: ImportHistoryProps) {
                 {run.status === "completed" ? (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="outline" size="sm">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={pendingId === run.id}
+                      >
                         <Undo2 className="mr-2 h-4 w-4" />
-                        Rückgängig machen
+                        {pendingId === run.id
+                          ? "Wird entfernt …"
+                          : "Rückgängig machen"}
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
@@ -95,7 +105,7 @@ export function ImportHistory({ runs }: ImportHistoryProps) {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleUndo}>
+                        <AlertDialogAction onClick={() => handleUndo(run.id)}>
                           Rückgängig machen
                         </AlertDialogAction>
                       </AlertDialogFooter>

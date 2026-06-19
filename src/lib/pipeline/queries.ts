@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Customer, StageId } from "@/lib/pipeline/data";
+import type { ImportRun } from "@/lib/import/mapping";
 
 interface CustomerRow {
   id: string;
@@ -58,4 +59,34 @@ export async function getCustomer(id: string): Promise<Customer | null> {
     .maybeSingle();
   if (error || !data) return null;
   return rowToCustomer(data as CustomerRow);
+}
+
+interface ImportRunRow {
+  id: string;
+  file_name: string;
+  imported: number;
+  skipped: number;
+  warnings: number;
+  status: string;
+  created_at: string;
+}
+
+/** Bisherige Import-Vorgänge laden (für den Import-Verlauf, PROJ-3). */
+export async function getImportRuns(): Promise<ImportRun[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("import_runs")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error || !data) return [];
+  return (data as ImportRunRow[]).map((row) => ({
+    id: row.id,
+    fileName: row.file_name,
+    imported: row.imported,
+    skipped: row.skipped,
+    warnings: row.warnings,
+    status: row.status === "undone" ? "undone" : "completed",
+    createdAt: row.created_at,
+  }));
 }

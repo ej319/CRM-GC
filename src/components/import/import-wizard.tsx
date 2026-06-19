@@ -15,6 +15,12 @@ import {
   type MappingTarget,
   type PrepareResult,
 } from "@/lib/import/mapping";
+import {
+  createImportRun,
+  finalizeImportRun,
+  importCustomersBatch,
+  suggestValueMappings,
+} from "@/lib/import/actions";
 import { StepFile } from "./step-file";
 import { StepColumns } from "./step-columns";
 import { StepValues } from "./step-values";
@@ -30,6 +36,8 @@ const STEP_LABELS: { key: Step; label: string }[] = [
   { key: "preview", label: "Vorschau" },
   { key: "run", label: "Import" },
 ];
+
+const CHUNK_SIZE = 300;
 
 function Stepper({ current }: { current: Step }) {
   const activeIndex = STEP_LABELS.findIndex((s) => s.key === current);
@@ -69,7 +77,9 @@ function Stepper({ current }: { current: Step }) {
 export function ImportWizard() {
   const [step, setStep] = useState<Step>("file");
   const [parsed, setParsed] = useState<ParsedFile | null>(null);
+  const [fileName, setFileName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
   const [fileError, setFileError] = useState<string>();
   const [mapping, setMapping] = useState<Record<string, MappingTarget>>({});
   const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
@@ -112,6 +122,7 @@ export function ImportWizard() {
     try {
       const data = await parseSpreadsheet(file);
       setParsed(data);
+      setFileName(file.name);
       setMapping(autoSuggestMapping(data.headers));
       setCategoryMap({});
       setSourceMap({});
@@ -125,28 +136,50 @@ export function ImportWizard() {
     }
   }
 
-  function handleNext() {
+  async function prepareSuggestions() {
+    // KI-Vorschlag pro unterschiedlichem Wert; lokaler Vorschlag als Fallback.
+    const [catRes, srcRes] = await Promise.all([
+      categoryValues.length > 0
+        ? suggestValueMappings(categoryValues, "category")
+        : Promise.resolve({ ok: true as const, data: {} }),
+      sourceValues.length > 0
+        ? suggestValueMappings(sourceValues, "source")
+        : Promise.resolve({ ok: true as const, data: {} }),
+    ]);
+    const aiCategory: Record<string, string> = catRes.ok ? catRes.data : {};
+    const aiSource: Record<string, string> = srcRes.ok ? srcRes.data : {};
+
+    setCategoryMap((prev) => {
+      const next = { ...prev };
+      for (const value of categoryValues) {
+        if (!(value in next)) {
+          next[value] = aiCategory[value] || localGuessCategory(value) || value;
+        }
+      }
+      return next;
+    });
+    setSourceMap((prev) => {
+      const next = { ...prev };
+      for (const value of sourceValues) {
+        if (!(value in next)) next[value] = aiSource[value] || value;
+      }
+      return next;
+    });
+  }
+
+  async function handleNext() {
     if (step === "columns") {
       if (!nameMapped) {
         toast.error("Bitte ordne eine Spalte dem Firmennamen zu.");
         return;
       }
       if (hasValueStep) {
-        // Vorschläge vorbereiten (lokaler Fallback; KI folgt mit dem Backend).
-        setCategoryMap((prev) => {
-          const next = { ...prev };
-          for (const value of categoryValues) {
-            if (!(value in next)) next[value] = localGuessCategory(value) || value;
-          }
-          return next;
-        });
-        setSourceMap((prev) => {
-          const next = { ...prev };
-          for (const value of sourceValues) {
-            if (!(value in next)) next[value] = value;
-          }
-          return next;
-        });
+        setSuggesting(true);
+        try {
+          await prepareSuggestions();
+        } finally {
+          setSuggesting(false);
+        }
         setStep("values");
       } else {
         setStep("preview");
@@ -164,36 +197,69 @@ export function ImportWizard() {
     else if (step === "preview") setStep(hasValueStep ? "values" : "columns");
   }
 
-  function startImport() {
+  async function startImport() {
     if (!prepared) return;
     setRunning(true);
     setProgress(0);
+    setResult(null);
     setStep("run");
 
-    // Vorschau-Modus: simulierter Fortschritt. Die echte, blockweise
-    // Speicherung in die Datenbank wird mit dem Backend angebunden.
-    const total = prepared.summary.toImport;
-    let done = 0;
-    const tick = () => {
-      done = Math.min(total, done + Math.max(1, Math.ceil(total / 20)));
-      setProgress(total === 0 ? 100 : Math.round((done / total) * 100));
-      if (done >= total) {
-        setRunning(false);
-        setResult({
-          imported: prepared.summary.toImport,
-          skipped: prepared.summary.dupesInFile + prepared.summary.errors,
-          warnings: prepared.summary.warnings,
-        });
-      } else {
-        setTimeout(tick, 60);
+    const importable = prepared.rows
+      .filter((r) => r.status === "import")
+      .map((r) => r.input);
+
+    const run = await createImportRun(fileName);
+    if (!run.ok) {
+      toast.error(run.error);
+      setRunning(false);
+      setStep("preview");
+      return;
+    }
+    const runId = run.data.runId;
+
+    let inserted = 0;
+    let dbSkipped = 0;
+    let failed = false;
+
+    for (let i = 0; i < importable.length; i += CHUNK_SIZE) {
+      const batch = importable.slice(i, i + CHUNK_SIZE);
+      const res = await importCustomersBatch(runId, batch);
+      if (!res.ok) {
+        toast.error(`Import unterbrochen: ${res.error}`);
+        failed = true;
+        break;
       }
-    };
-    setTimeout(tick, 200);
+      inserted += res.data.inserted;
+      dbSkipped += res.data.skipped;
+      setProgress(
+        Math.round(
+          (Math.min(i + batch.length, importable.length) / importable.length) *
+            100,
+        ),
+      );
+    }
+
+    if (importable.length === 0) setProgress(100);
+
+    const skipped =
+      prepared.summary.dupesInFile + prepared.summary.errors + dbSkipped;
+    await finalizeImportRun(runId, {
+      imported: inserted,
+      skipped,
+      warnings: prepared.summary.warnings,
+    });
+
+    setResult({ imported: inserted, skipped, warnings: prepared.summary.warnings });
+    setRunning(false);
+    if (!failed && inserted > 0) {
+      toast.success(`${inserted} Kunden importiert.`);
+    }
   }
 
   function reset() {
     setStep("file");
     setParsed(null);
+    setFileName("");
     setFileError(undefined);
     setMapping({});
     setCategoryMap({});
@@ -261,7 +327,7 @@ export function ImportWizard() {
 
         {step !== "file" && step !== "run" ? (
           <div className="flex items-center justify-between border-t pt-4">
-            <Button variant="outline" onClick={handleBack}>
+            <Button variant="outline" onClick={handleBack} disabled={suggesting}>
               Zurück
             </Button>
             {step === "preview" ? (
@@ -272,8 +338,11 @@ export function ImportWizard() {
                 Importieren ({prepared?.summary.toImport ?? 0})
               </Button>
             ) : (
-              <Button onClick={handleNext} disabled={step === "columns" && !nameMapped}>
-                Weiter
+              <Button
+                onClick={handleNext}
+                disabled={(step === "columns" && !nameMapped) || suggesting}
+              >
+                {suggesting ? "Vorschläge werden geladen …" : "Weiter"}
               </Button>
             )}
           </div>

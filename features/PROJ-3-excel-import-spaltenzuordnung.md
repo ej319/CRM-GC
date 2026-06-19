@@ -66,10 +66,10 @@
 - Import-Vorgänge werden festgehalten (Datum, Dateiname, Trefferzahlen) und es wird gespeichert, welche Kunden zu welchem Import gehören – Grundlage für Import-Verlauf und „Rückgängig machen".
 
 ## Open Questions
-- [ ] Soll „Rückgängig machen" für jeden vergangenen Import gelten oder nur den jeweils letzten? (Vorschlag: jeden, über einen Import-Verlauf.)
+- [x] „Rückgängig machen" gilt für jeden vergangenen Import (über den Import-Verlauf) — geklärt in `/architecture`.
+- [x] Vorschlags-Mechanismus für die Kategorie-/Quelle-Zuordnung: KI-Vorschlag (Claude/Haiku), nur für den Vorschlag — geklärt in `/architecture`.
+- [x] Zuordnungs-Vorlagen (Mapping) speichern: für MVP bewusst nicht (Migration meist einmalig).
 - [ ] Wenn an importierten Kunden später Verlauf hängt (Notizen/Aktivitäten/E-Mails, PROJ-4 ff.): Rückgängigmachen trotzdem erlauben (mit Warnung) oder dann blockieren? → spätestens beim Bau dieser Features klären.
-- [ ] Genauer Vorschlags-Mechanismus für die Kategorie-Zuordnung (einfache Stichwort-Erkennung vs. KI-Vorschlag) → Entscheidung in `/architecture`; KI ggf. nur für den Vorschlag, nicht für die finale Festlegung.
-- [ ] Sollen Zuordnungs-Vorlagen (Mapping) gespeichert werden, um wiederkehrende Importe zu erleichtern? (Vermutlich unnötig, da Migration meist einmalig.)
 
 ## Decision Log
 
@@ -91,13 +91,78 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| _To be added by /architecture_ | | |
+| Datei wird im Browser gelesen und blockweise an den Server gesendet | Kein großer Upload, keine Server-Timeouts, flüssiger Fortschritt bei 2.000+ Zeilen | 2026-06-19 |
+| Eine Bibliothek (`xlsx` / SheetJS) für Excel UND CSV | Ein Werkzeug für beide Formate; weniger Abhängigkeiten | 2026-06-19 |
+| Import-Vorgänge als eigene Tabelle + Herkunfts-Verweis am Kunden | Einfache, zuverlässige Grundlage für Import-Verlauf und „Rückgängig machen" (löscht genau die Kunden des Imports, später per CASCADE inkl. Verlauf) | 2026-06-19 |
+| „Rückgängig machen" gilt für jeden vergangenen Import (über den Verlauf), nicht nur den letzten | Nutzerwunsch „immer rückgängig machen" | 2026-06-19 |
+| Kategorie-/Quelle-Vorschlag per Claude (Haiku), serverseitig, nur pro unterschiedlichem Wert | Versteht die Bedeutung (z.B. „Marketingagentur → Büro"); minimale Kosten; Schlüssel bleibt geheim; Nutzer bestätigt | 2026-06-19 |
+| Import funktioniert auch ohne KI-Schlüssel (Vorschlag entfällt dann) | Import bleibt nutzbar, auch wenn (noch) kein API-Schlüssel hinterlegt ist | 2026-06-19 |
+| Umsetzung über Next Server Actions + Wiederverwendung der PROJ-2-Validierung (zod) | Konsistent mit bestehendem Code; gleiche Regeln wie beim manuellen Anlegen | 2026-06-19 |
+| Dubletten-Prüfung in der Import-Logik (kein harter DB-Zwang auf den Namen) | Verhindert Dubletten beim Import, ohne das manuelle Anlegen aus PROJ-2 einzuschränken | 2026-06-19 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Bausteine der Oberfläche
+```
+Eigene Import-Seite „/import"  (im Grund-Gerüst mit oberer Leiste + Nutzer-Menü)
+├── Erreichbar über das Nutzer-Menü oben rechts: „Daten importieren"
+│
+├── Import-Assistent (führt Schritt für Schritt)
+│   ├── Schritt 1 – Datei wählen      (Excel .xlsx oder CSV hochladen / per Drag-and-Drop)
+│   ├── Schritt 2 – Spalten zuordnen   (Tabelle: jede Datei-Spalte → CRM-Feld; Vorschlag automatisch; Firmenname Pflicht)
+│   ├── Schritt 3 – Werte zuordnen     (Kategorie & Quelle: jeder unterschiedliche Wert mit KI-Vorschlag, änderbar / „als neu übernehmen")
+│   ├── Schritt 4 – Vorschau & Prüfung (erste Zeilen + Zusammenfassung: importieren / Dubletten / Warnungen → Button „Importieren")
+│   ├── Schritt 5 – Import läuft        (Fortschrittsbalken, blockweise)
+│   └── Schritt 6 – Ergebnis            (importiert / übersprungen / Warnungen + Link „Zum Board")
+│
+└── Import-Verlauf (Liste vergangener Importe)
+    └── je Eintrag: Datum · Dateiname · Zahlen · Button „Rückgängig machen" (mit Sicherheitsabfrage)
+```
+
+### Datenmodell (in Klartext)
+Neu hinzu kommen:
+- **Import-Vorgang** (= ein Eintrag im „Import-Verlauf"): Zeitpunkt, wer importiert hat, Dateiname, Anzahl importiert, Anzahl übersprungen (Dubletten), Anzahl Warnungen, Status (abgeschlossen / rückgängig gemacht).
+- **Kunde – Herkunft:** jeder Kunde bekommt einen Vermerk, aus welchem Import-Vorgang er stammt (leer bei von Hand angelegten Kunden). Das ist die Grundlage fürs „Rückgängig machen".
+
+Die eigentlichen Kundenfelder bleiben unverändert (PROJ-2): Firmenname, Ansprechpartner, Telefon, E-Mail, Adresse/PLZ/Ort, Kategorie, Quelle, Monatswert, Phase.
+
+Speicherort: Supabase (PostgreSQL), geteilte Team-Daten, geschützt durch Row Level Security.
+
+### So läuft der Import technisch ab (in Worten)
+1. Die Datei wird **direkt im Browser gelesen** (nicht hochgeladen/dauerhaft gespeichert). Eine bewährte Tabellen-Bibliothek liest Excel und CSV.
+2. Spalten- und Werte-Zuordnung passieren im Browser.
+3. Beim Klick auf „Importieren" werden die geprüften Zeilen **in Blöcken** (z.B. einige Hundert auf einmal) an den Server geschickt und gespeichert. Nach jedem Block wächst der Fortschrittsbalken. So bleibt alles auch bei 2.000+ Zeilen flüssig und es gibt keine Zeit-Überschreitungen.
+4. Pro Zeile prüft der Server: Firmenname vorhanden? Schon im Bestand oder schon in diesem Import? Felder gültig? → anlegen, überspringen oder Feld leeren (Warnung), wie in der Spec festgelegt.
+
+### Der KI-Vorschlag (Kategorie/Quelle)
+- Läuft **auf dem Server** (der KI-Schlüssel bleibt geheim, nie im Browser).
+- Wird nur **einmal pro unterschiedlichem Wert** aufgerufen (eine Handvoll Mal pro Import) → sehr geringe Kosten.
+- Verwendet ein schnelles, günstiges Claude-Modell (Haiku) und liefert je Wert den am besten passenden CRM-Kategorie-Vorschlag. Du bestätigst/änderst — die KI entscheidet nie endgültig.
+- **Ohne hinterlegten Schlüssel funktioniert der Import trotzdem** — dann entfällt nur der Vorschlag und du ordnest die Werte selbst zu.
+
+### Rückgängig machen
+- Weil jeder importierte Kunde seinen Import-Vorgang „kennt", entfernt „Rückgängig machen" genau die Kunden dieses Imports — nach einer Sicherheitsabfrage. Der Vorgang wird danach als „rückgängig gemacht" markiert.
+- Schon vorher von Hand gelöschte Kunden werden einfach übersprungen (kein Fehler).
+- Sobald später Verlauf an Kunden hängt (Notizen/Aktivitäten, PROJ-4 ff.), würde dieser beim Rückgängigmachen mitentfernt — die Abfrage warnt davor (heute noch nicht relevant).
+
+### Tech-Entscheidungen (warum)
+- **Datei im Browser lesen, in Blöcken speichern:** keine großen Uploads, kein Server-Timeout, flüssiger Fortschritt auch bei großen Listen.
+- **Eine Bibliothek für Excel + CSV:** ein Werkzeug für beide Formate, weniger Komplexität.
+- **Herkunfts-Vermerk am Kunden:** einfachste, zuverlässige Grundlage fürs Rückgängigmachen.
+- **KI nur für den Vorschlag, nur pro unterschiedlichem Wert:** liefert die gewünschte „Erkennung", bleibt aber billig und du behältst die Kontrolle.
+- **Server-Aktionen statt eigener API-Routen:** genau wie in PROJ-2 — passt zum bestehenden Projekt; Wiederverwendung der PROJ-2-Validierung.
+- **shadcn/ui-Bausteine** (Tabelle, Auswahllisten, Fortschrittsbalken, Dialog): bereits vorhanden, kein Eigenbau.
+
+### Abhängigkeiten (zu installieren)
+- `xlsx` (SheetJS) – liest Excel- (.xlsx) und CSV-Dateien im Browser.
+- `@anthropic-ai/sdk` – Claude-Anbindung für den Kategorie-/Quelle-Vorschlag (nur serverseitig).
+- (Fortschrittsbalken, Tabelle, Auswahllisten, Dialog sind als shadcn/ui-Komponenten schon installiert.)
+
+### Einmalige Einrichtung durch den Nutzer
+- Für den KI-Vorschlag wird ein **Anthropic-API-Schlüssel** gebraucht. Er wird einmalig in `.env.local` als `ANTHROPIC_API_KEY` hinterlegt (der Agent kann diese Datei aus Sicherheitsgründen nicht selbst beschreiben — der Nutzer legt sie an). Ohne Schlüssel bleibt der Import voll nutzbar, nur ohne KI-Vorschlag.
 
 ## QA Test Results
 _To be added by /qa_

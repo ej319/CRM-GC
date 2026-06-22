@@ -1,0 +1,152 @@
+# PROJ-4: Kunden-/Auftrags-Detailansicht mit komplettem Verlauf
+
+## Status: Planned
+**Created:** 2026-06-22
+**Last Updated:** 2026-06-22
+
+## Dependencies
+- Requires: PROJ-1 (Supabase Infrastruktur & Auth) — Login + Datenbank, freigeschaltete Nutzer
+- Requires: PROJ-2 (Pipeline-basierte Kundenverwaltung) — Kunden-Tabelle, Detailseiten-Gerüst `/kunde/[id]`, Phasen, Kategorie
+- **Enthält PROJ-6 (Notizen):** PROJ-6 geht in PROJ-4 auf (Notizen sind die erste, voll funktionsfähige Verlauf-Quelle)
+- Verwandt (klinken sich später in denselben Verlauf ein): PROJ-5 (Aktivitäten → „Fokus" + Verlauf), PROJ-7 (E-Mails → Verlauf), PROJ-8 (Anruf aus der Telefonnummer), PROJ-13 (Dateien → Verlauf)
+
+## User Stories
+- Als Vertriebsnutzer möchte ich auf der Kunden-Detailseite alle Basisdaten links kompakt sehen (Ansprechpartner, Telefon, E-Mail, Adresse, Kategorie als farbiges Etikett, Phase, Monatswert), damit ich den Kunden auf einen Blick erfasse.
+- Als Vertriebsnutzer möchte ich die Kundendaten über einen „Bearbeiten"-Button ändern und speichern, damit ich Angaben aktuell halte.
+- Als Vertriebsnutzer möchte ich oben schnell eine Notiz anlegen (später auch Aktivität/E-Mail/Datei), damit ich Festgehaltenes sofort dokumentiere.
+- Als Vertriebsnutzer möchte ich im Verlauf alle Notizen chronologisch (neueste oben) mit Verfasser und Zeit sehen, damit ich den kompletten Kontaktverlauf nachvollziehe.
+- Als Vertriebsnutzer möchte ich Notizen bearbeiten und (mit Bestätigung) löschen können, damit ich Fehler korrigiere.
+- Als Vertriebsnutzer möchte ich den Verlauf nach Typ filtern (Alle/Notizen/Aktivitäten/E-Mails/Dateien), damit ich gezielt finde.
+- Als Vertriebsnutzer möchte ich einen vorbereiteten „Fokus"-Bereich für Geplantes sehen, damit später anstehende Aktivitäten oben erscheinen.
+
+## Out of Scope
+- **Aktivitäten-Funktion** (anlegen/planen/abhaken, „Fokus" mit echten Daten) → PROJ-5. In PROJ-4 nur der Bereich + Platzhalter-Reiter.
+- **E-Mail-Anzeige/Versand/Sync** → PROJ-7. Nur Platzhalter-Reiter „kommt bald".
+- **Datei-Upload/-Anhang** → PROJ-13. Nur Platzhalter-Reiter.
+- **Ein-Klick-Anruf (Placetel)** → PROJ-8. Die Telefonnummer wird in PROJ-4 nur angezeigt.
+- **Verwaltung der Auswahllisten** (Label/Kategorie/Quelle selbst bearbeiten) → kleiner separater Schritt später.
+- **Phasen-Fortschrittsbalken** oben und **„Gewonnen/Verloren"-Schnellknöpfe** → optional später; die Phase ändert man im Feld.
+- **Notiz-Formatierung** (Fett/Listen/Bilder), **Anheften/Pinnen** von Einträgen, **Kommentare** an Einträgen → später.
+- **Mehrere Aufträge pro Kunde** (Karte = Kunde aus PROJ-2) → spätere Ausbaustufe.
+
+## Acceptance Criteria
+
+**Format:** Angenommen [Vorbedingung] / Wenn [Aktion] / Dann [Ergebnis]
+
+- [ ] Angenommen ich öffne `/kunde/[id]` eines vorhandenen Kunden, wenn die Seite lädt, dann sehe ich links die kompakte Übersicht (Firmenname, Ansprechpartner, Telefon, E-Mail, Adresse/PLZ/Ort, Kategorie als farbiges Etikett, Quelle, Monatswert, Phase) und im Hauptbereich die Anlege-Leiste, den „Fokus"-Bereich und den Verlauf.
+- [ ] Angenommen ich bin in der Übersicht, wenn ich auf „Bearbeiten" klicke, Felder ändere und speichere, dann sind die Änderungen sofort sichtbar und nach dem Neuladen erhalten.
+- [ ] Angenommen ich bearbeite den Kunden, wenn ich den Firmennamen leere und speichere, dann erscheint eine Validierungsmeldung und es wird nicht gespeichert.
+- [ ] Angenommen ich wähle den Reiter „Notiz", wenn ich Text eingebe und auf „Speichern" klicke, dann erscheint die Notiz oben im Verlauf mit meinem Namen und Zeitstempel.
+- [ ] Angenommen ich gebe eine leere Notiz (oder nur Leerzeichen) ein, wenn ich auf „Speichern" klicke, dann wird nichts gespeichert.
+- [ ] Angenommen eine Notiz existiert, wenn ich sie bearbeite und speichere, dann zeigt der Verlauf den geänderten Text.
+- [ ] Angenommen eine Notiz existiert, wenn ich auf „Löschen" klicke und die Sicherheitsabfrage bestätige, dann verschwindet die Notiz aus dem Verlauf.
+- [ ] Angenommen es gibt mehrere Notizen, wenn ich den Verlauf ansehe, dann stehen die neuesten oben.
+- [ ] Angenommen der Kunde hat noch keine Einträge, wenn ich den Verlauf ansehe, dann sehe ich den Hinweis „Noch keine Einträge".
+- [ ] Angenommen ich wähle einen Filter-Reiter (Alle/Notizen/Aktivitäten/E-Mails/Dateien), wenn ich ihn anklicke, dann zeigt der Verlauf nur diesen Typ; für noch nicht gebaute Typen erscheint „kommt bald".
+- [ ] Angenommen die Telefonnummer ist gesetzt, wenn ich die Übersicht ansehe, dann wird sie angezeigt (Ein-Klick-Anruf folgt mit PROJ-8).
+- [ ] Angenommen das Speichern einer Notiz schlägt fehl (z.B. Netzwerk), wenn ich speichere, dann erscheint eine Fehlermeldung und mein eingegebener Text bleibt erhalten.
+- [ ] Angenommen ich bin nicht angemeldet, wenn ich `/kunde/[id]` öffne, dann werde ich zur Login-Seite geleitet.
+
+## Edge Cases
+- Was passiert, wenn der Kunde nicht existiert / gelöscht wurde? → Hinweis „nicht gefunden" + „Zurück zum Board" (bereits aus PROJ-2).
+- Was passiert bei sehr langer Notiz / sehr vielen Notizen? → Verlauf ist scrollbar; Zeilenumbrüche im Notiztext werden korrekt dargestellt.
+- Was passiert bei gleichzeitiger Bearbeitung desselben Kunden/derselben Notiz durch zwei Nutzer? → Die zuletzt gespeicherte Änderung gewinnt (bewusst einfach, wie PROJ-2).
+- Was passiert mit Sonderzeichen/Umlauten/HTML im Notiztext? → Wird als reiner Text dargestellt (escaped), kein HTML/Script wird ausgeführt.
+- Was passiert beim Löschen eines Kunden, an dem Notizen hängen? → Die Notizen werden mitgelöscht (CASCADE). Deckt sich mit PROJ-3: Ein rückgängig gemachter Import entfernt den Kunden **inkl.** seiner Notizen.
+- Was passiert bei einem Netzwerkfehler beim Laden des Verlaufs? → Verständlicher Fehlhinweis; erneutes Laden möglich.
+
+## Technical Requirements (optional)
+- Security: Zugriff nur für angemeldete, freigeschaltete Nutzer (PROJ-1). Geteilte Team-Daten: alle sehen/bearbeiten dieselben Notizen. Row Level Security auf der neuen Notizen-Tabelle.
+- Notiztext wird als Klartext gespeichert und escaped angezeigt (kein HTML/Script).
+- Performance: Detailseite lädt Kunde + Notizen serverseitig; eine neu angelegte Notiz erscheint sofort im Verlauf.
+- Erweiterbarkeit: Der Verlauf ist als einheitliche Zeitleiste angelegt und für die Eintragstypen Aktivität/E-Mail/Datei vorbereitet (Filter-Reiter bereits vorhanden).
+
+## Open Questions
+- [ ] Phasen-Fortschrittsbalken oben und „Gewonnen/Verloren"-Schnellknöpfe gewünscht? (Vorschlag: später.)
+- [ ] Notiz-Formatierung (Fett/Listen) später nachrüsten? (Aktuell bewusst nur Text.)
+- [ ] Eigene Verwaltungs-Oberfläche zum Bearbeiten der Auswahllisten (Label/Kategorie/Quelle) — wann und als welche PROJ-Nummer?
+
+## Decision Log
+
+### Product Decisions
+<!-- Added by /write-spec -->
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| PROJ-4 umfasst Layout + voll funktionsfähige Notizen; PROJ-6 (Notizen) geht darin auf | Notizen sind die einzige Verlauf-Quelle ohne externe Abhängigkeit; macht die Detailseite sofort nutzbar und testbar | 2026-06-22 |
+| Aktivität/E-Mail/Datei/Anruf bleiben eigene Features (PROJ-5/7/13/8); in PROJ-4 nur Platzhalter-Reiter | Single Responsibility; PROJ-4 baut den erweiterbaren Verlauf-Rahmen | 2026-06-22 |
+| Layout gedreht: links kompakte Übersicht, Mitte = Anlege-Leiste + „Fokus" + Verlauf | Entspricht der vom Nutzer gezeigten Pipedrive-Zielansicht | 2026-06-22 |
+| Kundendaten bearbeiten über „Bearbeiten"-Button (Lese-Ansicht → editierbar) | Vertraut, einfach, nutzt das bestehende Formular weiter | 2026-06-22 |
+| Notiz-Editor = einfacher mehrzeiliger Text | Reicht für Gesprächsnotizen, robust, später erweiterbar | 2026-06-22 |
+| „Label" = bestehende Kategorie als farbiges Etikett (kein neues Feld) | Vermeidet doppeltes Feld; die Geschäftsart ist bereits „Kategorie" | 2026-06-22 |
+| Notizen: Verfasser + Zeit, neueste oben, bearbeiten/löschen (Löschen mit Bestätigung), geteilte Team-Daten | Nachvollziehbarer Kontaktverlauf, konsistent mit PROJ-2 | 2026-06-22 |
+| Telefon nur anzeigen; Ein-Klick-Anruf in PROJ-8 | Klare Trennung; Placetel-Anbindung ist ein eigenes Feature | 2026-06-22 |
+| Verwaltung der Auswahllisten (Label/Kategorie/Quelle) als kleiner separater Schritt | Hält PROJ-4 fokussiert | 2026-06-22 |
+
+### Technical Decisions
+<!-- Added by /architecture -->
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Notizen als eigene Tabelle (Verweis auf den Kunden), nicht als Textfeld am Kunden | Mehrere Einträge mit Verfasser/Zeit; Grundlage für die gemeinsame Zeitleiste | 2026-06-22 |
+| Notizen `ON DELETE CASCADE` am Kunden | Beim Löschen/Import-Rückgängigmachen verschwinden die Notizen mit dem Kunden (klärt PROJ-3-Frage) | 2026-06-22 |
+| Verfasser-Anzeige aus dem Nutzerprofil (Name, Fallback E-Mail) | Nachvollziehbar, ohne den Namen zu duplizieren | 2026-06-22 |
+| Verlauf als einheitliche, typ-basierte Zeitleiste (jetzt nur „Notiz") | Aktivität/E-Mail/Datei klinken sich später ohne Umbau ein | 2026-06-22 |
+| Umsetzung über Next Server Actions + RLS wie bei `customers` | Konsistent mit PROJ-2/PROJ-3; geteilte Team-Daten geschützt | 2026-06-22 |
+| Bearbeiten via Lese-/Editier-Umschaltung, bestehende Speicher-Logik weiterverwenden | Wenig neuer Code, vertraute Bedienung | 2026-06-22 |
+| „Label" = bestehende Kategorie als farbiges Etikett (Farben aus vorhandener Map) | Vermeidet ein doppeltes Feld | 2026-06-22 |
+| Keine neuen Pakete; vorhandene shadcn-Bausteine (Tabs, Textarea, …) | Kein Eigenbau, kein zusätzliches Risiko | 2026-06-22 |
+
+---
+<!-- Sections below are added by subsequent skills -->
+
+## Tech Design (Solution Architect)
+
+### Bausteine der Oberfläche
+```
+Kunden-Detailseite „/kunde/[id]"  (im Grund-Gerüst mit oberer Leiste)
+├── Kopf: Firmenname  ·  [← Board]  ·  [Löschen] (Sicherheitsabfrage)
+│
+├── Linke Spalte – Kundenübersicht (kompakt)
+│     ├── Lese-Ansicht: Ansprechpartner · Telefon · E-Mail · Adresse/PLZ/Ort ·
+│     │   Kategorie (farbiges Etikett) · Quelle · Monatswert · Phase
+│     └── [Bearbeiten] → Felder werden änderbar → [Speichern] / [Abbrechen]
+│
+└── Hauptbereich (Mitte)
+      ├── Anlege-Leiste (Reiter):  [Notiz]aktiv · Aktivität · E-Mail · Datei  (letztere „kommt bald")
+      │     └── Notiz-Editor: mehrzeiliges Textfeld + [Speichern]
+      ├── „Fokus" (Geplantes) – Platzhalter-Bereich, füllt PROJ-5
+      └── Verlauf
+            ├── Filter-Reiter:  Alle · Notizen · Aktivitäten · E-Mails · Dateien
+            ├── Eintrag (Notiz):  Text · Verfasser · Datum/Zeit · [Bearbeiten] / [Löschen]
+            └── Leer-Zustand: „Noch keine Einträge"
+```
+
+### Datenmodell (in Klartext)
+Neu hinzu kommt:
+- **Notizen** (eigene Tabelle): Verweis auf den Kunden, Notiztext, **Verfasser** (welcher Nutzer), Erstell- und Änderungszeit. Beim Löschen des Kunden werden seine Notizen **automatisch mitgelöscht** (CASCADE) – passt zum Import-Rückgängigmachen aus PROJ-3.
+- **Verfasser-Anzeige:** Es wird der Name aus dem Nutzerprofil gezeigt (Fallback: E-Mail) – der Name wird nicht doppelt gespeichert.
+- Geteilte Team-Daten: alle freigeschalteten Nutzer sehen/bearbeiten dieselben Notizen (Row Level Security).
+- Die **Kundenfelder bleiben unverändert** (PROJ-2). „Label" = die bestehende **Kategorie**, als farbiges Etikett dargestellt (Farben aus der schon vorhandenen Kategorie-Farbtabelle).
+
+Speicherort: Supabase (PostgreSQL).
+
+### Wie der Verlauf aufgebaut ist
+- Der Verlauf ist eine **einheitliche Zeitleiste mit Eintragstyp**. Aktuell gibt es nur den Typ „Notiz".
+- Aktivitäten (PROJ-5), E-Mails (PROJ-7) und Dateien (PROJ-13) klinken sich später als **weitere Eintragstypen** in dieselbe Zeitleiste und dieselben Filter-Reiter ein – **ohne Umbau**. Bis dahin zeigen ihre Reiter „kommt bald".
+- Sortierung: neueste oben.
+
+### Tech-Entscheidungen (warum)
+- **Notizen als eigene Tabelle** (statt Textfeld am Kunden): erlaubt mehrere Einträge mit Verfasser/Zeit und ist die Grundlage für die gemeinsame Zeitleiste.
+- **Reiter & Editor aus vorhandenen Bausteinen** (shadcn-Tabs + Textfeld): kein Eigenbau, kein neues Paket.
+- **Bearbeiten per Lese-/Editier-Umschaltung**: nutzt die bestehende Speicher-Logik aus PROJ-2 weiter – wenig neuer Code, vertraute Bedienung.
+- **Speichern/Ändern/Löschen über Next Server Actions** (wie PROJ-2/PROJ-3); neue Notiz erscheint sofort.
+- **Notiztext als Klartext** (escaped): kein HTML/Script – kein Sicherheitsrisiko.
+- **RLS wie bei `customers`**: nur freigeschaltete Nutzer, geteilte Team-Daten.
+
+### Abhängigkeiten (zu installieren)
+- **Keine neuen Pakete.** Alle benötigten shadcn/ui-Bausteine (Tabs, Textarea, Card, Button, AlertDialog, Badge, ScrollArea) sind bereits installiert.
+
+## QA Test Results
+_To be added by /qa_
+
+## Deployment
+_To be added by /deploy_

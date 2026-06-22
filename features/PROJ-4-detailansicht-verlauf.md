@@ -145,6 +145,17 @@ Speicherort: Supabase (PostgreSQL).
 ### Abhängigkeiten (zu installieren)
 - **Keine neuen Pakete.** Alle benötigten shadcn/ui-Bausteine (Tabs, Textarea, Card, Button, AlertDialog, Badge, ScrollArea) sind bereits installiert.
 
+## Frontend-Implementierung (Stand 2026-06-22)
+- **Detailseite `/kunde/[id]` neu aufgebaut:** oben [← Board] + [Löschen]; darunter Raster mit **linker Kundenübersicht** und **Hauptbereich** (Anlege-Leiste + „Fokus" + Verlauf).
+- **Linke Übersicht** (`customer-summary.tsx`): Lese-Ansicht mit Kategorie als **farbigem Etikett**, Ansprechpartner/Telefon/E-Mail/Adresse/Quelle/Monatswert; **Phase** jederzeit per Auswahl änderbar; **„Bearbeiten"-Button** schaltet die Felder editierbar → Speichern. **Speichern/Phase ändern sind echt** (nutzen die PROJ-2-Server-Aktionen `updateCustomer`/`updateCustomerStage`).
+- **Anlege-Leiste** (`detail-composer.tsx`): Reiter **Notiz** (mehrzeiliges, gelbes Textfeld + Speichern) aktiv; **Aktivität/E-Mail/Datei** als Platzhalter „kommt bald".
+- **Verlauf** (`verlauf.tsx` + `note-item.tsx`): Filter-Reiter (Alle/Notizen/Aktivitäten/E-Mails/Dateien); Notizen als gelbe Einträge mit **Verfasser + Zeit**, **Bearbeiten** (inline) und **Löschen** (Sicherheitsabfrage); Leer-Zustand „Noch keine Einträge"; andere Reiter „kommt bald".
+- **„Fokus"** als Platzhalter-Karte (füllt PROJ-5).
+- **Neue Dateien:** `src/lib/notes/data.ts`; `src/components/detail/{customer-summary,detail-composer,verlauf,note-item}.tsx`. Geändert: `src/components/pipeline/customer-detail.tsx` (komplett neu als Orchestrator).
+- **Verifikation:** `tsc --noEmit` sauber; `npm test` 28/28 grün; `npm run build` erfolgreich (`/kunde/[id]` vorhanden).
+- **Vorschau-Hinweis:** Notizen laufen aktuell **nur im Browser** (anlegen/bearbeiten/löschen sichtbar, aber nicht dauerhaft gespeichert). Ein Banner weist darauf hin.
+- **Offen für `/backend`:** Tabelle `notes` (Verweis auf Kunde, Text, Verfasser, Zeit, `ON DELETE CASCADE`) mit RLS; Server-Aktionen Notiz anlegen/bearbeiten/löschen; Notizen serverseitig laden (Verfassername aus Profil); Vorschau-Banner entfernen.
+
 ## QA Test Results
 _To be added by /qa_
 

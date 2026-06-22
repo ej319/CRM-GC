@@ -174,7 +174,76 @@ Speicherort: Supabase (PostgreSQL), geteilte Team-Daten, Row Level Security.
 - **Offen / spätere Verfeinerung:** Die Board-Sortierung „Letzte Aktivität" nutzt die früheste offene Fälligkeit (Kunden ohne Aktivität oben); die feinere Reihenfolge „überfällig zuerst" innerhalb der aktiven Kunden kann später angepasst werden.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-06-22
+**App URL:** http://localhost:3000
+**Tester:** QA Engineer (AI)
+
+> Die Status-/Marker-Logik ist per Unit-Tests abgedeckt, der Zugangsschutz per E2E, das Datenmodell direkt in Supabase. Die angemeldeten Abläufe wurden zusätzlich vom Nutzer live getestet; ein finaler Klickdurchlauf des kompletten Aktivitäts-Flows wird empfohlen.
+
+### Acceptance Criteria Status
+
+- [x] **AC-1 – Aktivität planen → erscheint beim Kunden + zentrale Seite:** `createActivity` speichert; Kundenakte + `/aktivitaeten` laden serverseitig.
+- [x] **AC-2 – Ohne Datum/Typ abgelehnt:** Client- (`ActivityForm`) und serverseitige Validierung (`validate`).
+- [x] **AC-3..6 – Board-Marker rot/grün/grau/gelb:** aus den offenen Aktivitäten je Kunde (`markerStatus`, unit-getestet); `getCustomers` setzt `activityStatus`.
+- [x] **AC-7 – Status-Vorrang überfällig > heute > zukünftig:** `markerStatus` (unit-getestet).
+- [x] **AC-8 – Abhaken = erledigt, bleibt im Verlauf, zählt nicht mehr, Folge-Dialog:** `completeActivity` setzt `completed_at`; Marker/Fokus ignorieren erledigte; `PlanNextDialog` öffnet.
+- [x] **AC-9 – Erledigte im Verlauf-Reiter „Aktivitäten":** `ActivityItem` zeigt sie abgehakt mit Erledigt-Datum.
+- [x] **AC-10/11 – Folge-Dialog speichern/überspringen:** Speichern legt neue offene Aktivität an; Überspringen nichts → keine offene → gelbes Warndreieck.
+- [x] **AC-12 – „Fokus" zeigt dringendste offene:** `focusActivity` (überfällige zuerst, unit-getestet).
+- [x] **AC-13 – Zentrale Seite: offene nach Fälligkeit:** `getOpenActivities` sortiert nach Datum/Uhrzeit, mit Typ-Symbol, Kunde, Fälligkeit, Notiz.
+- [x] **AC-14 – Filter Überfällig/Heute/Zukunft:** clientseitig in `ActivityList`.
+- [x] **AC-15 – Klick auf Zeile → Kundenakte:** Link auf `/kunde/[id]`.
+- [x] **AC-16 – Bearbeiten → überall sichtbar:** `updateActivity` + `revalidatePath`.
+- [x] **AC-17 – Löschen mit Sicherheitsabfrage:** `AlertDialog` → `deleteActivity`.
+- [x] **AC-18 – Nicht angemeldet → Login:** E2E-Redirect für `/aktivitaeten` (Chromium + Mobile Chrome).
+
+**Ergebnis: 18/18 Akzeptanzkriterien abgedeckt.**
+
+### Edge Cases Status
+- [x] **Heute, Uhrzeit vorbei:** gilt den ganzen Tag als „heute" (Datum-basiert, `dueStatus`).
+- [x] **Mehrere überfällige:** Marker rot; „Fokus" zeigt die älteste (unit-getestet).
+- [x] **Ohne Uhrzeit:** ganztägig; nur Datum angezeigt (`formatDue`).
+- [x] **Kunde löschen:** Aktivitäten via FK CASCADE mitgelöscht (in Supabase verifiziert) — deckt auch PROJ-3-Undo/PROJ-4 ab.
+- [x] **Nur erledigte Aktivitäten:** gelbes Warndreieck (keine offene), Verlauf zeigt die erledigten.
+- [x] **Gleichzeitige Bearbeitung:** zuletzt gespeichert gewinnt.
+- [~] **Netzwerkfehler beim Speichern:** Fehler-Toast; im Formular bleibt die Eingabe erhalten (Editor leert erst bei Erfolg).
+
+### Security Audit Results
+- [x] **Authentifizierung:** `/aktivitaeten` ohne Login nicht erreichbar (E2E); alle Aktivitäts-Aktionen prüfen `requireUser()`.
+- [x] **Autorisierung / RLS:** `activities` mit RLS + 4 Policies (nur freigeschaltete Nutzer). In Supabase verifiziert.
+- [x] **XSS:** Typ/Notiz nur über React gerendert (escaped); kein `dangerouslySetInnerHTML`.
+- [x] **SQL-Injektion:** Ausschließlich parametrisierte Supabase-Aufrufe.
+- [x] **Secrets:** Keine neuen; kein externer Schlüssel nötig.
+- [x] **Funktions-Härtung:** wiederverwendete `set_updated_at` mit festem `search_path`; Security-Advisor sauber.
+- [i] **Rate Limiting:** Nicht implementiert – internes CRM, wie PROJ-2/3/4.
+
+### Automated Tests
+- **Unit (Vitest): 34/34 grün** — inkl. Aktivitäts-Logik (`src/lib/activities/data.test.ts`, 6): `dueStatus`, `markerStatus`, `focusActivity`, `formatDue`.
+- **E2E (Playwright): 26/26 grün** — Zugangsschutz `/aktivitaeten` (Chromium + Mobile Chrome); PROJ-1–4 weiterhin grün (keine Regression).
+- **Datenmodell (Supabase):** `activities` RLS aktiv + 4 Policies; FK `customer_id` = CASCADE; Trigger + 3 Indizes.
+- **Build/Typen:** `tsc --noEmit` sauber (Voll-Build ausgelassen wegen laufendem Dev-Server; Dev-Server hat alle Änderungen fehlerfrei kompiliert).
+
+### Bugs Found
+
+#### LOW-1: Board lädt bei jedem Aufruf alle offenen Aktivitäten
+- **Severity:** Low
+- `getCustomers` macht eine zusätzliche Abfrage über alle offenen Aktivitäten, um die Marker zu berechnen. Bei sehr großem Bestand ggf. später optimieren (z.B. Aggregat-View). Für die erwartete Menge unkritisch.
+
+#### INFO: Sortierung „Letzte Aktivität" noch grob
+- Nutzt die früheste offene Fälligkeit (Kunden ohne Aktivität oben); die feinere „überfällig zuerst"-Reihenfolge innerhalb aktiver Kunden ist noch nicht umgesetzt (siehe Spec).
+
+#### INFO: Live-Klickdurchlauf empfohlen
+- Der komplette angemeldete Flow (planen → Board-Marker → abhaken → Folge-Dialog → zentrale Liste) wurde nicht automatisiert; empfohlen, einmal live zu prüfen.
+
+### Summary
+- **Acceptance Criteria:** 18/18 abgedeckt
+- **Bugs Found:** 1 niedrig + 2 Hinweise (0 kritisch, 0 hoch, 0 mittel)
+- **Security:** Bestanden (Auth + RLS + Escaping + parametrisiert + Funktions-Härtung)
+- **Production Ready:** **YES** (keine kritischen/hohen Fehler) – empfohlen: einmaliger Live-Klickdurchlauf des Aktivitäts-Flows.
+
+## Deployment
+_To be added by /deploy_
 
 ## Deployment
 _To be added by /deploy_

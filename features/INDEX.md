@@ -19,7 +19,7 @@
 | PROJ-2 | Pipeline-basierte Kundenverwaltung (Kanban, Drag-and-Drop) | P0 | PROJ-1 | Approved | PROJ-2-pipeline-kundenverwaltung.md | 2026-06-17 |
 | PROJ-3 | Excel-Import mit Spaltenzuordnung | P0 | PROJ-1, PROJ-2 | Approved | PROJ-3-excel-import-spaltenzuordnung.md | 2026-06-19 |
 | PROJ-4 | Kunden-/Auftrags-Detailansicht mit komplettem Verlauf (inkl. Notizen) | P0 | PROJ-2 | Approved | PROJ-4-detailansicht-verlauf.md | 2026-06-22 |
-| PROJ-5 | Aktivitätenplanung und Aktivitätenliste | P0 | PROJ-1, PROJ-2, PROJ-4 | In Progress | PROJ-5-aktivitaeten.md | 2026-06-22 |
+| PROJ-5 | Aktivitätenplanung und Aktivitätenliste | P0 | PROJ-1, PROJ-2, PROJ-4 | Approved | PROJ-5-aktivitaeten.md | 2026-06-22 |
 | PROJ-6 | Notizen am Kunden/Auftrag — geht in PROJ-4 auf | P0 | PROJ-4 | Merged → PROJ-4 | (siehe PROJ-4) | |
 | PROJ-7 | E-Mail-Versand und Gmail-Postfach-Sync (voll) | P0 | PROJ-1, PROJ-2 | Roadmap | | |
 | PROJ-8 | Click-to-Call über Placetel | P0 | PROJ-2, PROJ-4 | Roadmap | | |

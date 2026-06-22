@@ -165,6 +165,14 @@ Speicherort: Supabase (PostgreSQL), geteilte Team-Daten, Row Level Security.
 - **Vorschau-Hinweis:** Aktivitäten laufen **nur im Browser** (anlegen/abhaken/bearbeiten/löschen sichtbar, nicht dauerhaft gespeichert); die zentrale Seite zeigt Beispieldaten; die Board-Marker stehen noch auf „keine". Banner weisen darauf hin.
 - **Offen für `/backend`:** Tabelle `activities` (Verweis auf Kunde, Typ, Fälligkeit, Notiz, `erledigt_am`, CASCADE) mit RLS; Server-Aktionen anlegen/abhaken/bearbeiten/löschen; echte Daten für Kundenakte + zentrale Seite; **Board-Marker + Sortierung „Letzte Aktivität"** an die offenen Aktivitäten je Kunde anbinden; Vorschau-Banner/Beispieldaten entfernen.
 
+## Backend-Implementierung (Stand 2026-06-22)
+- **Datenbank:** Neue Tabelle `activities` (Verweis auf den Kunden `customer_id` **ON DELETE CASCADE**, `type`, `due_date`, `due_time` (optional), `note`, **`completed_at`** (leer = offen), `created_by`, Zeitstempel) mit Row Level Security (4 Policies, nur freigeschaltete Nutzer). Trigger `activities_set_updated_at` (gehärtete `set_updated_at`-Funktion); Indizes auf `customer_id` und ein Teil-Index auf offene Fälligkeiten. Security-Advisor sauber.
+- **Server-Code:** `src/lib/activities/queries.ts` (`getCustomerActivities`, `getOpenActivities` mit Kundennamen-Join + Mapper); `src/lib/activities/actions.ts` (`createActivity`, **`completeActivity`** = setzt `completed_at`, bleibt erhalten, `updateActivity`, `deleteActivity` — alle mit Auth + Validierung + `revalidatePath`).
+- **Board-Marker echt:** `getCustomers` lädt die offenen Aktivitäten je Kunde und berechnet daraus `activityStatus` (🔴 überfällig / 🟢 heute / ⚪ zukünftig / ⚠️ keine) sowie `lastActivityAt` (früheste offene Fälligkeit) — die Karten zeigen jetzt den echten Status.
+- **Frontend angebunden:** Kundenakte lädt Aktivitäten serverseitig; Anlegen/Abhaken/Bearbeiten/Löschen laufen echt; „Fokus" + Verlauf-Reiter zeigen echte Daten; **Vorschau-Banner entfernt**. Zentrale Seite `/aktivitaeten` lädt echte offene Aktivitäten; Abhaken dort ruft `completeActivity` und öffnet den Folge-Aktivität-Dialog (mit `router.refresh`).
+- **Verifikation:** `tsc --noEmit` sauber; `npm test` 34/34 grün; Dev-Server hat die Änderungen ohne Fehler übernommen; Security-Advisor sauber (Voll-Build ausgelassen wegen laufendem Dev-Server).
+- **Offen / spätere Verfeinerung:** Die Board-Sortierung „Letzte Aktivität" nutzt die früheste offene Fälligkeit (Kunden ohne Aktivität oben); die feinere Reihenfolge „überfällig zuerst" innerhalb der aktiven Kunden kann später angepasst werden.
+
 ## QA Test Results
 _To be added by /qa_
 

@@ -19,6 +19,11 @@ export interface Activity {
   completedAt?: string | null;
 }
 
+/** Aktivität samt Kundenname – für die zentrale Aktivitätenliste. */
+export interface ActivityRow extends Activity {
+  customerName: string;
+}
+
 export type DueStatus = "overdue" | "today" | "future";
 /** Wie der Board-Marker: today/future/overdue, oder "none" (keine offene Aktivität). */
 export type MarkerStatus = DueStatus | "none";

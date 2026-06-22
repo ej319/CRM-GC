@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, Info, Trash2 } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -16,7 +16,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomerSummary } from "@/components/detail/customer-summary";
@@ -27,6 +26,12 @@ import { PlanNextDialog } from "@/components/detail/plan-next-dialog";
 import type { ActivityFormValues } from "@/components/detail/activity-form";
 import { deleteCustomer } from "@/lib/pipeline/actions";
 import { createNote, deleteNote, updateNote } from "@/lib/notes/actions";
+import {
+  createActivity as createActivityAction,
+  completeActivity as completeActivityAction,
+  updateActivity as updateActivityAction,
+  deleteActivity as deleteActivityAction,
+} from "@/lib/activities/actions";
 import { focusActivity, type Activity } from "@/lib/activities/data";
 import type { Customer } from "@/lib/pipeline/data";
 import type { Note } from "@/lib/notes/data";
@@ -43,9 +48,11 @@ function plusDays(n: number): string {
 export function CustomerDetail({
   customer,
   initialNotes,
+  initialActivities,
 }: {
   customer: Customer | null;
   initialNotes: Note[];
+  initialActivities: Activity[];
 }) {
   if (!customer) {
     return (
@@ -59,23 +66,30 @@ export function CustomerDetail({
       </div>
     );
   }
-  return <CustomerDetailView customer={customer} initialNotes={initialNotes} />;
+  return (
+    <CustomerDetailView
+      customer={customer}
+      initialNotes={initialNotes}
+      initialActivities={initialActivities}
+    />
+  );
 }
 
 function CustomerDetailView({
   customer,
   initialNotes,
+  initialActivities,
 }: {
   customer: Customer;
   initialNotes: Note[];
+  initialActivities: Activity[];
 }) {
   const [deleting, setDeleting] = useState(false);
   const [notes, setNotes] = useState<Note[]>(initialNotes);
-  // Aktivitäten laufen vorerst im Browser (Vorschau); echtes Speichern folgt im Backend.
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const [activities, setActivities] = useState<Activity[]>(initialActivities);
   const [planNextOpen, setPlanNextOpen] = useState(false);
 
-  // --- Notizen (echt, aus PROJ-4) ---
+  // --- Notizen ---
   async function addNote(body: string): Promise<boolean> {
     const res = await createNote(customer.id, body);
     if (!res.ok) {
@@ -103,50 +117,43 @@ function CustomerDetailView({
     setNotes((prev) => prev.filter((n) => n.id !== id));
   }
 
-  // --- Aktivitäten (Vorschau) ---
+  // --- Aktivitäten ---
   async function addActivity(values: ActivityFormValues): Promise<boolean> {
-    setActivities((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        customerId: customer.id,
-        type: values.type,
-        dueDate: values.dueDate,
-        dueTime: values.dueTime || undefined,
-        note: values.note || undefined,
-        completedAt: null,
-      },
-    ]);
+    const res = await createActivityAction(customer.id, values);
+    if (!res.ok) {
+      toast.error(res.error);
+      return false;
+    }
+    setActivities((prev) => [...prev, res.data]);
     return true;
   }
-  function completeActivity(id: string) {
-    setActivities((prev) =>
-      prev.map((a) =>
-        a.id === id ? { ...a, completedAt: new Date().toISOString() } : a,
-      ),
-    );
+  async function completeActivity(id: string) {
+    const res = await completeActivityAction(id);
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    setActivities((prev) => prev.map((a) => (a.id === id ? res.data : a)));
     setPlanNextOpen(true);
   }
   async function editActivity(
     id: string,
     values: ActivityFormValues,
   ): Promise<boolean> {
-    setActivities((prev) =>
-      prev.map((a) =>
-        a.id === id
-          ? {
-              ...a,
-              type: values.type,
-              dueDate: values.dueDate,
-              dueTime: values.dueTime || undefined,
-              note: values.note || undefined,
-            }
-          : a,
-      ),
-    );
+    const res = await updateActivityAction(id, values);
+    if (!res.ok) {
+      toast.error(res.error);
+      return false;
+    }
+    setActivities((prev) => prev.map((a) => (a.id === id ? res.data : a)));
     return true;
   }
-  function deleteActivity(id: string) {
+  async function deleteActivity(id: string) {
+    const res = await deleteActivityAction(id);
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
     setActivities((prev) => prev.filter((a) => a.id !== id));
   }
 
@@ -202,16 +209,6 @@ function CustomerDetailView({
         </div>
 
         <div className="space-y-4 lg:col-span-2">
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertTitle>Vorschau-Modus (Aktivitäten)</AlertTitle>
-            <AlertDescription>
-              Aktivitäten kannst du hier schon planen, abhaken und bearbeiten –
-              sie werden aber noch nicht dauerhaft gespeichert (kommt im
-              nächsten Schritt). Notizen werden bereits echt gespeichert.
-            </AlertDescription>
-          </Alert>
-
           <DetailComposer onAddNote={addNote} onAddActivity={addActivity} />
 
           <Card className={focus ? undefined : "border-dashed"}>

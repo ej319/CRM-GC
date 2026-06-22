@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Customer, StageId } from "@/lib/pipeline/data";
 import type { ImportRun } from "@/lib/import/mapping";
+import { markerStatus, todayInBerlin, type Activity } from "@/lib/activities/data";
 
 interface CustomerRow {
   id: string;
@@ -46,7 +47,38 @@ export async function getCustomers(): Promise<Customer[]> {
     .select("*")
     .order("updated_at", { ascending: false });
   if (error || !data) return [];
-  return (data as CustomerRow[]).map(rowToCustomer);
+  const customers = (data as CustomerRow[]).map(rowToCustomer);
+
+  // Offene Aktivitäten je Kunde laden → Marker-Status + früheste Fälligkeit.
+  const { data: acts } = await supabase
+    .from("activities")
+    .select("customer_id, due_date")
+    .is("completed_at", null);
+  const today = todayInBerlin();
+  const byCustomer = new Map<string, string[]>();
+  for (const a of (acts ?? []) as { customer_id: string; due_date: string }[]) {
+    const list = byCustomer.get(a.customer_id) ?? [];
+    list.push(a.due_date);
+    byCustomer.set(a.customer_id, list);
+  }
+  for (const c of customers) {
+    const dates = byCustomer.get(c.id) ?? [];
+    if (dates.length === 0) {
+      c.activityStatus = "none";
+      c.lastActivityAt = null;
+    } else {
+      const minimal: Activity[] = dates.map((d) => ({
+        id: "",
+        customerId: c.id,
+        type: "",
+        dueDate: d,
+        completedAt: null,
+      }));
+      c.activityStatus = markerStatus(minimal, today);
+      c.lastActivityAt = dates.slice().sort()[0]; // früheste offene Fälligkeit
+    }
+  }
+  return customers;
 }
 
 /** Einen Kunden anhand der ID laden. */

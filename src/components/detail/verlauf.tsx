@@ -12,7 +12,7 @@ import { VERLAUF_FILTERS, type Note } from "@/lib/notes/data";
 
 interface VerlaufProps {
   notes: Note[];
-  onEdit: (id: string, body: string) => void;
+  onEdit: (id: string, body: string) => Promise<boolean>;
   onDelete: (id: string) => void;
 }
 

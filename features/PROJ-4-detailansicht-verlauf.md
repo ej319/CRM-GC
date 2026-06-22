@@ -156,6 +156,14 @@ Speicherort: Supabase (PostgreSQL).
 - **Vorschau-Hinweis:** Notizen laufen aktuell **nur im Browser** (anlegen/bearbeiten/löschen sichtbar, aber nicht dauerhaft gespeichert). Ein Banner weist darauf hin.
 - **Offen für `/backend`:** Tabelle `notes` (Verweis auf Kunde, Text, Verfasser, Zeit, `ON DELETE CASCADE`) mit RLS; Server-Aktionen Notiz anlegen/bearbeiten/löschen; Notizen serverseitig laden (Verfassername aus Profil); Vorschau-Banner entfernen.
 
+## Backend-Implementierung (Stand 2026-06-22)
+- **Datenbank:** Neue Tabelle `notes` (Verweis auf den Kunden `customer_id` **ON DELETE CASCADE**, `body`, `author_id` → profiles, `created_at`, `updated_at`) mit Row Level Security (lesen/anlegen/ändern/löschen nur für freigeschaltete Nutzer mit Profil – gleiches Muster wie `customers`). Trigger `notes_set_updated_at`; Index auf `(customer_id, created_at desc)`.
+- **Härtung:** `set_updated_at()` mit festem `search_path` (behebt den Advisor-Hinweis „function_search_path_mutable"). Security-Advisor sonst sauber (nur die bekannte, nicht zutreffende Passwort-Warnung – Google-Login).
+- **Server-Code:** `src/lib/notes/queries.ts` (`getNotes` + Mapper, Verfassername aus dem Profil-Join, Fallback E-Mail/„Unbekannt"); `src/lib/notes/actions.ts` (`createNote`, `updateNote`, `deleteNote` mit Auth-Prüfung + Leer-Validierung).
+- **Frontend angebunden:** Die Detailseite **lädt die Notizen serverseitig** und reicht sie durch; Anlegen/Bearbeiten/Löschen laufen jetzt **echt** über die Server-Aktionen (Liste aktualisiert sich aus der Server-Antwort). Bei Fehlern bleibt die Eingabe erhalten (Notiz-Editor leert erst bei Erfolg). **Vorschau-Banner entfernt.**
+- **Verifikation:** `tsc --noEmit` sauber; `npm test` 28/28 grün; `npm run build` erfolgreich; Security-Advisor sauber.
+- **Offen (spätere Features):** „Fokus"/Aktivitäten (PROJ-5), E-Mails (PROJ-7), Dateien (PROJ-13), Ein-Klick-Anruf (PROJ-8) klinken sich in denselben Verlauf/dieselbe Leiste ein. Verfassername ist „Du" nur im alten Vorschau-Stand gewesen – jetzt echter Profilname.
+
 ## QA Test Results
 _To be added by /qa_
 

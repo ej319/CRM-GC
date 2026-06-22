@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, Info, Trash2 } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -16,22 +16,23 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomerSummary } from "@/components/detail/customer-summary";
 import { DetailComposer } from "@/components/detail/detail-composer";
 import { Verlauf } from "@/components/detail/verlauf";
 import { deleteCustomer } from "@/lib/pipeline/actions";
+import { createNote, deleteNote, updateNote } from "@/lib/notes/actions";
 import type { Customer } from "@/lib/pipeline/data";
 import type { Note } from "@/lib/notes/data";
 
-export function CustomerDetail({ customer }: { customer: Customer | null }) {
+export function CustomerDetail({
+  customer,
+  initialNotes,
+}: {
+  customer: Customer | null;
+  initialNotes: Note[];
+}) {
   if (!customer) {
     return (
       <div className="mx-auto max-w-md py-12 text-center">
@@ -44,31 +45,45 @@ export function CustomerDetail({ customer }: { customer: Customer | null }) {
       </div>
     );
   }
-  return <CustomerDetailView customer={customer} />;
+  return <CustomerDetailView customer={customer} initialNotes={initialNotes} />;
 }
 
-function CustomerDetailView({ customer }: { customer: Customer }) {
+function CustomerDetailView({
+  customer,
+  initialNotes,
+}: {
+  customer: Customer;
+  initialNotes: Note[];
+}) {
   const [deleting, setDeleting] = useState(false);
-  // Notizen laufen vorerst im Browser (Vorschau). Echtes Speichern folgt im Backend.
-  const [notes, setNotes] = useState<Note[]>([]);
+  const [notes, setNotes] = useState<Note[]>(initialNotes);
 
-  function addNote(body: string) {
-    const now = new Date().toISOString();
-    setNotes((prev) => [
-      { id: crypto.randomUUID(), body, authorName: "Du", createdAt: now },
-      ...prev,
-    ]);
+  async function addNote(body: string): Promise<boolean> {
+    const res = await createNote(customer.id, body);
+    if (!res.ok) {
+      toast.error(res.error);
+      return false;
+    }
+    setNotes((prev) => [res.data, ...prev]);
+    return true;
   }
 
-  function editNote(id: string, body: string) {
-    setNotes((prev) =>
-      prev.map((n) =>
-        n.id === id ? { ...n, body, updatedAt: new Date().toISOString() } : n,
-      ),
-    );
+  async function editNote(id: string, body: string): Promise<boolean> {
+    const res = await updateNote(id, body);
+    if (!res.ok) {
+      toast.error(res.error);
+      return false;
+    }
+    setNotes((prev) => prev.map((n) => (n.id === id ? res.data : n)));
+    return true;
   }
 
-  function deleteNote(id: string) {
+  async function removeNote(id: string) {
+    const res = await deleteNote(id);
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
     setNotes((prev) => prev.filter((n) => n.id !== id));
   }
 
@@ -117,23 +132,11 @@ function CustomerDetailView({ customer }: { customer: Customer }) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Linke Spalte: kompakte Kundenübersicht */}
         <div className="lg:col-span-1">
           <CustomerSummary customer={customer} />
         </div>
 
-        {/* Hauptbereich: Anlegen + Fokus + Verlauf */}
         <div className="space-y-4 lg:col-span-2">
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertTitle>Vorschau-Modus</AlertTitle>
-            <AlertDescription>
-              Notizen werden hier schon angezeigt und bearbeitet, aber noch nicht
-              dauerhaft gespeichert – das echte Speichern kommt im nächsten
-              Schritt (Backend).
-            </AlertDescription>
-          </Alert>
-
           <DetailComposer onAddNote={addNote} />
 
           <Card className="border-dashed">
@@ -148,7 +151,7 @@ function CustomerDetailView({ customer }: { customer: Customer }) {
             </CardContent>
           </Card>
 
-          <Verlauf notes={notes} onEdit={editNote} onDelete={deleteNote} />
+          <Verlauf notes={notes} onEdit={editNote} onDelete={removeNote} />
         </div>
       </div>
     </div>

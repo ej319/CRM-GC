@@ -20,7 +20,7 @@ import { formatDateTime, type Note } from "@/lib/notes/data";
 
 interface NoteItemProps {
   note: Note;
-  onEdit: (id: string, body: string) => void;
+  onEdit: (id: string, body: string) => Promise<boolean>;
   onDelete: (id: string) => void;
 }
 
@@ -29,11 +29,11 @@ export function NoteItem({ note, onEdit, onDelete }: NoteItemProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(note.body);
 
-  function save() {
+  async function save() {
     const text = draft.trim();
     if (!text) return;
-    onEdit(note.id, text);
-    setEditing(false);
+    const ok = await onEdit(note.id, text);
+    if (ok) setEditing(false);
   }
 
   return (

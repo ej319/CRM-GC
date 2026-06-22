@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
 interface DetailComposerProps {
-  onAddNote: (body: string) => void;
+  onAddNote: (body: string) => Promise<boolean>;
 }
 
 function ComingSoon({ label }: { label: string }) {
@@ -23,12 +23,15 @@ function ComingSoon({ label }: { label: string }) {
 /** Anlege-Leiste oben: Notiz (aktiv) + Platzhalter-Reiter für Aktivität/E-Mail/Datei. */
 export function DetailComposer({ onAddNote }: DetailComposerProps) {
   const [body, setBody] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  function handleSave() {
+  async function handleSave() {
     const text = body.trim();
     if (!text) return;
-    onAddNote(text);
-    setBody("");
+    setSaving(true);
+    const ok = await onAddNote(text);
+    setSaving(false);
+    if (ok) setBody("");
   }
 
   return (
@@ -58,8 +61,8 @@ export function DetailComposer({ onAddNote }: DetailComposerProps) {
               className="min-h-24 bg-amber-50"
             />
             <div className="flex justify-end">
-              <Button onClick={handleSave} disabled={!body.trim()}>
-                Speichern
+              <Button onClick={handleSave} disabled={!body.trim() || saving}>
+                {saving ? "Speichern…" : "Speichern"}
               </Button>
             </div>
           </TabsContent>

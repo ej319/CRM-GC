@@ -155,6 +155,16 @@ Speicherort: Supabase (PostgreSQL), geteilte Team-Daten, Row Level Security.
 ### Abhängigkeiten (zu installieren)
 - **Keine neuen Pakete.** shadcn/ui-Bausteine (Dialog, Auswahl, Eingabe, Tabs, Tabelle) sind vorhanden; Datum/Uhrzeit über native Browser-Eingabefelder.
 
+## Frontend-Implementierung (Stand 2026-06-22)
+- **Neue Seite `/aktivitaeten`** (Menüpunkt „Aktivitäten" oben rechts): offene Aktivitäten nach Fälligkeit, Filter Alle/Überfällig/Heute/Zukunft, je Zeile Typ-Symbol · Kunde (Link) · Fälligkeit (farbig) · Notiz · Abhaken.
+- **Kundenakte:** „Aktivität"-Reiter zeigt jetzt das **Aktivitäts-Formular** (Typ, Datum, Uhrzeit optional, Notiz); **„Fokus"** zeigt die dringendste offene Aktivität (abhakbar); Verlauf-Reiter **„Aktivitäten"** listet offene (farbig) + erledigte (abgehakt); „Alle" zeigt Aktivitäten + Notizen.
+- **Abhaken-Ablauf:** Haken → Aktivität wird erledigt (bleibt im Verlauf) → **„Nächste Aktivität planen"-Dialog** (Datum +7 Tage vorbelegt, überspringbar).
+- **Status-Logik** (`src/lib/activities/data.ts`): überfällig/heute/zukünftig nach Datum (Europe/Berlin), Marker-Aggregat je Kunde, Fokus-Auswahl — mit Unit-Tests (6).
+- **Neue Dateien:** `src/lib/activities/{data,data.test}.ts`; `src/components/detail/{activity-form,activity-item,plan-next-dialog}.tsx`; `src/components/activities/activity-list.tsx`; `src/app/aktivitaeten/page.tsx`. Geändert: `detail-composer.tsx`, `verlauf.tsx`, `customer-detail.tsx`, `user-menu.tsx`.
+- **Verifikation:** `tsc --noEmit` sauber; `npm test` 34/34 grün; Dev-Server hat die Änderungen ohne Fehler übernommen (Voll-Build ausgelassen, um den laufenden Dev-Server nicht zu stören).
+- **Vorschau-Hinweis:** Aktivitäten laufen **nur im Browser** (anlegen/abhaken/bearbeiten/löschen sichtbar, nicht dauerhaft gespeichert); die zentrale Seite zeigt Beispieldaten; die Board-Marker stehen noch auf „keine". Banner weisen darauf hin.
+- **Offen für `/backend`:** Tabelle `activities` (Verweis auf Kunde, Typ, Fälligkeit, Notiz, `erledigt_am`, CASCADE) mit RLS; Server-Aktionen anlegen/abhaken/bearbeiten/löschen; echte Daten für Kundenakte + zentrale Seite; **Board-Marker + Sortierung „Letzte Aktivität"** an die offenen Aktivitäten je Kunde anbinden; Vorschau-Banner/Beispieldaten entfernen.
+
 ## QA Test Results
 _To be added by /qa_
 

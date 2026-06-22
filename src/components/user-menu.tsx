@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { LogOut, Upload } from "lucide-react";
+import { CalendarClock, LogOut, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -67,6 +67,12 @@ export function UserMenu({ name, email, avatarUrl }: UserMenuProps) {
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/aktivitaeten">
+            <CalendarClock className="mr-2 h-4 w-4" />
+            Aktivitäten
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link href="/import">
             <Upload className="mr-2 h-4 w-4" />

@@ -7,9 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { todayInBerlin } from "@/lib/activities/data";
+import { ActivityForm, type ActivityFormValues } from "./activity-form";
 
 interface DetailComposerProps {
   onAddNote: (body: string) => Promise<boolean>;
+  onAddActivity: (values: ActivityFormValues) => Promise<boolean>;
 }
 
 function ComingSoon({ label }: { label: string }) {
@@ -21,7 +24,7 @@ function ComingSoon({ label }: { label: string }) {
 }
 
 /** Anlege-Leiste oben: Notiz (aktiv) + Platzhalter-Reiter für Aktivität/E-Mail/Datei. */
-export function DetailComposer({ onAddNote }: DetailComposerProps) {
+export function DetailComposer({ onAddNote, onAddActivity }: DetailComposerProps) {
   const [body, setBody] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -67,8 +70,13 @@ export function DetailComposer({ onAddNote }: DetailComposerProps) {
             </div>
           </TabsContent>
 
-          <TabsContent value="activity">
-            <ComingSoon label="Aktivitäten planen (PROJ-5)" />
+          <TabsContent value="activity" className="mt-4">
+            <ActivityForm
+              initial={{ dueDate: todayInBerlin() }}
+              submitLabel="Speichern"
+              resetOnSuccess
+              onSubmit={onAddActivity}
+            />
           </TabsContent>
           <TabsContent value="email">
             <ComingSoon label="E-Mails (PROJ-7)" />

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, Info, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -16,15 +16,29 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomerSummary } from "@/components/detail/customer-summary";
 import { DetailComposer } from "@/components/detail/detail-composer";
 import { Verlauf } from "@/components/detail/verlauf";
+import { ActivityItem } from "@/components/detail/activity-item";
+import { PlanNextDialog } from "@/components/detail/plan-next-dialog";
+import type { ActivityFormValues } from "@/components/detail/activity-form";
 import { deleteCustomer } from "@/lib/pipeline/actions";
 import { createNote, deleteNote, updateNote } from "@/lib/notes/actions";
+import { focusActivity, type Activity } from "@/lib/activities/data";
 import type { Customer } from "@/lib/pipeline/data";
 import type { Note } from "@/lib/notes/data";
+
+function plusDays(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 export function CustomerDetail({
   customer,
@@ -57,7 +71,11 @@ function CustomerDetailView({
 }) {
   const [deleting, setDeleting] = useState(false);
   const [notes, setNotes] = useState<Note[]>(initialNotes);
+  // Aktivitäten laufen vorerst im Browser (Vorschau); echtes Speichern folgt im Backend.
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [planNextOpen, setPlanNextOpen] = useState(false);
 
+  // --- Notizen (echt, aus PROJ-4) ---
   async function addNote(body: string): Promise<boolean> {
     const res = await createNote(customer.id, body);
     if (!res.ok) {
@@ -67,7 +85,6 @@ function CustomerDetailView({
     setNotes((prev) => [res.data, ...prev]);
     return true;
   }
-
   async function editNote(id: string, body: string): Promise<boolean> {
     const res = await updateNote(id, body);
     if (!res.ok) {
@@ -77,7 +94,6 @@ function CustomerDetailView({
     setNotes((prev) => prev.map((n) => (n.id === id ? res.data : n)));
     return true;
   }
-
   async function removeNote(id: string) {
     const res = await deleteNote(id);
     if (!res.ok) {
@@ -85,6 +101,53 @@ function CustomerDetailView({
       return;
     }
     setNotes((prev) => prev.filter((n) => n.id !== id));
+  }
+
+  // --- Aktivitäten (Vorschau) ---
+  async function addActivity(values: ActivityFormValues): Promise<boolean> {
+    setActivities((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        customerId: customer.id,
+        type: values.type,
+        dueDate: values.dueDate,
+        dueTime: values.dueTime || undefined,
+        note: values.note || undefined,
+        completedAt: null,
+      },
+    ]);
+    return true;
+  }
+  function completeActivity(id: string) {
+    setActivities((prev) =>
+      prev.map((a) =>
+        a.id === id ? { ...a, completedAt: new Date().toISOString() } : a,
+      ),
+    );
+    setPlanNextOpen(true);
+  }
+  async function editActivity(
+    id: string,
+    values: ActivityFormValues,
+  ): Promise<boolean> {
+    setActivities((prev) =>
+      prev.map((a) =>
+        a.id === id
+          ? {
+              ...a,
+              type: values.type,
+              dueDate: values.dueDate,
+              dueTime: values.dueTime || undefined,
+              note: values.note || undefined,
+            }
+          : a,
+      ),
+    );
+    return true;
+  }
+  function deleteActivity(id: string) {
+    setActivities((prev) => prev.filter((a) => a.id !== id));
   }
 
   async function handleDelete() {
@@ -98,6 +161,8 @@ function CustomerDetailView({
       toast.error(res.error);
     }
   }
+
+  const focus = focusActivity(activities);
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -118,7 +183,7 @@ function CustomerDetailView({
               <AlertDialogTitle>Kunde löschen?</AlertDialogTitle>
               <AlertDialogDescription>
                 „{customer.name}" wird endgültig gelöscht – inklusive aller
-                Notizen. Das lässt sich nicht rückgängig machen.
+                Notizen und Aktivitäten. Das lässt sich nicht rückgängig machen.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -137,23 +202,57 @@ function CustomerDetailView({
         </div>
 
         <div className="space-y-4 lg:col-span-2">
-          <DetailComposer onAddNote={addNote} />
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertTitle>Vorschau-Modus (Aktivitäten)</AlertTitle>
+            <AlertDescription>
+              Aktivitäten kannst du hier schon planen, abhaken und bearbeiten –
+              sie werden aber noch nicht dauerhaft gespeichert (kommt im
+              nächsten Schritt). Notizen werden bereits echt gespeichert.
+            </AlertDescription>
+          </Alert>
 
-          <Card className="border-dashed">
+          <DetailComposer onAddNote={addNote} onAddActivity={addActivity} />
+
+          <Card className={focus ? undefined : "border-dashed"}>
             <CardHeader>
               <CardTitle className="text-base">Fokus</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Geplante Aktivitäten (z.B. „Anruf am …") erscheinen hier – kommt
-                mit PROJ-5.
-              </p>
+              {focus ? (
+                <ActivityItem
+                  activity={focus}
+                  onComplete={completeActivity}
+                  onEdit={editActivity}
+                  onDelete={deleteActivity}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Keine offene Aktivität geplant. Plane oben eine Aktivität.
+                </p>
+              )}
             </CardContent>
           </Card>
 
-          <Verlauf notes={notes} onEdit={editNote} onDelete={removeNote} />
+          <Verlauf
+            notes={notes}
+            onEditNote={editNote}
+            onDeleteNote={removeNote}
+            activities={activities}
+            onCompleteActivity={completeActivity}
+            onEditActivity={editActivity}
+            onDeleteActivity={deleteActivity}
+          />
         </div>
       </div>
+
+      <PlanNextDialog
+        open={planNextOpen}
+        onOpenChange={setPlanNextOpen}
+        customerName={customer.name}
+        defaultDate={plusDays(7)}
+        onPlan={addActivity}
+      />
     </div>
   );
 }

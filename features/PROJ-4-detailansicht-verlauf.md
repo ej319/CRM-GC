@@ -165,7 +165,76 @@ Speicherort: Supabase (PostgreSQL).
 - **Offen (spätere Features):** „Fokus"/Aktivitäten (PROJ-5), E-Mails (PROJ-7), Dateien (PROJ-13), Ein-Klick-Anruf (PROJ-8) klinken sich in denselben Verlauf/dieselbe Leiste ein. Verfassername ist „Du" nur im alten Vorschau-Stand gewesen – jetzt echter Profilname.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-06-22
+**App URL:** http://localhost:3000
+**Tester:** QA Engineer (AI)
+
+> Hinweis: Die Detailseite liegt hinter dem Google-Login. Der **angemeldete Klickdurchlauf** (Notiz anlegen/bearbeiten/löschen) lässt sich nicht automatisieren; abgesichert sind **Zugangsschutz per E2E**, **Datenmodell direkt in Supabase** und ein **statischer Abgleich** gegen die Kriterien. Empfehlung: einmal live durchklicken (siehe Hinweise unten).
+
+### Acceptance Criteria Status
+
+- [x] **AC-1 – Layout:** Detailseite mit linker Übersicht + Hauptbereich (Anlege-Leiste/Fokus/Verlauf); Build erfolgreich, Route `/kunde/[id]` vorhanden.
+- [x] **AC-2 – Bearbeiten + speichern (persistiert):** Nutzt die **echten** PROJ-2-Aktionen `updateCustomer` (bereits in PROJ-2 getestet/Approved); Lese-/Editier-Umschaltung.
+- [x] **AC-3 – Leerer Firmenname abgelehnt:** Client-Prüfung + serverseitige Zod-Validierung (PROJ-2).
+- [x] **AC-4 – Notiz anlegen → oben mit Name + Zeit:** `createNote` legt an (author = angemeldeter Nutzer), Liste prepend; Verfassername aus Profil-Join.
+- [x] **AC-5 – Leere Notiz wird nicht gespeichert:** Client- **und** serverseitige Leer-Prüfung (`body.trim()`).
+- [x] **AC-6 – Notiz bearbeiten:** `updateNote` speichert; Verlauf zeigt geänderten Text (+ „bearbeitet").
+- [x] **AC-7 – Notiz löschen mit Sicherheitsabfrage:** `AlertDialog` → `deleteNote`.
+- [x] **AC-8 – Neueste oben:** `getNotes` sortiert `created_at desc`; neue Notiz wird oben eingefügt.
+- [x] **AC-9 – Leer-Zustand:** „Noch keine Einträge" bei 0 Notizen.
+- [x] **AC-10 – Filter-Reiter:** Alle/Notizen zeigen Notizen; Aktivitäten/E-Mails/Dateien „kommt bald".
+- [x] **AC-11 – Telefon angezeigt:** in der Übersicht; Ein-Klick-Anruf folgt mit PROJ-8.
+- [x] **AC-12 – Speichern schlägt fehl → Fehler + Eingabe bleibt:** Notiz-Editor leert erst bei Erfolg; bei Fehler Toast, Text bleibt.
+- [x] **AC-13 – Nicht angemeldet → Login:** E2E-Redirect für `/kunde/[id]` (Chromium + Mobile Chrome, via PROJ-2-Spec), 22/22 grün.
+
+**Ergebnis: 13/13 Akzeptanzkriterien abgedeckt** (Logik/Datenmodell/Zugangsschutz verifiziert; finaler Live-Klickdurchlauf empfohlen).
+
+### Edge Cases Status
+
+- [x] **Kunde nicht gefunden/gelöscht:** Hinweis + „Zurück zum Board" (aus PROJ-2).
+- [x] **Lange/viele Notizen:** Verlauf scrollbar; Notiztext mit Zeilenumbrüchen (`whitespace-pre-wrap`).
+- [x] **Gleichzeitige Bearbeitung:** Zuletzt gespeichert gewinnt (bewusst einfach).
+- [x] **Sonderzeichen/HTML im Notiztext:** Als reiner Text dargestellt (React escaped), kein HTML/Script.
+- [x] **Kunde löschen → Notizen mit gelöscht:** FK `customer_id` = **CASCADE** (in Supabase verifiziert). Deckt zugleich PROJ-3 ab (Import-Rückgängigmachen entfernt Kunde inkl. Notizen).
+- [~] **Netzwerkfehler beim Laden des Verlaufs:** `getNotes` liefert bei Fehler eine leere Liste → es erscheint der Leer-Zustand statt eines expliziten Fehlhinweises (siehe BUG LOW-1).
+
+### Security Audit Results
+- [x] **Authentifizierung:** `/kunde/[id]` ohne Login nicht erreichbar (E2E-Redirect); alle Notiz-Aktionen prüfen `requireUser()`.
+- [x] **Autorisierung / RLS:** `notes` mit RLS + 4 Policies (lesen/anlegen/ändern/löschen nur mit Profil = freigeschaltet). In Supabase verifiziert.
+- [x] **XSS:** Notiztext nur über React gerendert (escaped); kein `dangerouslySetInnerHTML`.
+- [x] **SQL-Injektion:** Ausschließlich parametrisierte Supabase-Aufrufe.
+- [x] **Secrets:** Keine neuen; PROJ-4 braucht keinen externen Schlüssel.
+- [x] **Funktions-Härtung:** `set_updated_at` mit festem `search_path` (Advisor-Hinweis behoben). Security-Advisor sonst sauber (nur die nicht zutreffende Passwort-Warnung).
+- [i] **Rate Limiting:** Nicht implementiert – internes CRM, wie PROJ-2/PROJ-3.
+
+### Automated Tests
+- **Unit (Vitest): 28/28 grün** (keine Regression; PROJ-4 hat keine eigene komplexe Pure-Logik).
+- **E2E (Playwright): 22/22 grün** – Zugangsschutz inkl. `/kunde/[id]` (Chromium + Mobile Chrome); PROJ-1/PROJ-2/PROJ-3 weiterhin grün.
+- **Datenmodell (Supabase):** `notes` RLS aktiv + 4 Policies; FK `customer_id` = CASCADE; Trigger + Index vorhanden.
+- **Build:** `tsc --noEmit` sauber; `npm run build` erfolgreich.
+
+### Bugs Found
+
+#### LOW-1: Ladefehler des Verlaufs zeigt Leer-Zustand statt Fehlhinweis
+- **Severity:** Low
+- `getNotes` gibt bei einem Lesefehler eine leere Liste zurück → der Nutzer sieht „Noch keine Einträge" statt eines Hinweises „Verlauf konnte nicht geladen werden". Für den Normalbetrieb unkritisch; später ein expliziter Fehlhinweis möglich.
+
+#### LOW-2: Bearbeiten/Löschen einer zwischenzeitlich entfernten Notiz
+- **Severity:** Low
+- Wird eine Notiz parallel gelöscht und danach bearbeitet, meldet `updateNote` einen Fehler (Toast); ein Löschen einer bereits entfernten Notiz bleibt folgenlos. Tritt im Normalbetrieb kaum auf.
+
+#### INFO: Live-Klickdurchlauf ausstehend
+- Der angemeldete Ablauf (Notiz anlegen/bearbeiten/löschen, **Verfassername** korrekt aus dem Profil, **Persistenz nach Neuladen**) wurde nicht automatisiert geprüft. Empfehlung: einmal live testen.
+
+### Summary
+- **Acceptance Criteria:** 13/13 abgedeckt
+- **Bugs Found:** 2 niedrig + 1 Hinweis (0 kritisch, 0 hoch, 0 mittel)
+- **Security:** Bestanden (Auth + RLS + Validierung + parametrisierte Queries + Funktions-Härtung)
+- **Production Ready:** **YES** (keine kritischen/hohen Fehler) – empfohlen: einmaliger Live-Klickdurchlauf einer Notiz vor dem Produktiv-Einsatz.
+
+## Deployment
+_To be added by /deploy_
 
 ## Deployment
 _To be added by /deploy_

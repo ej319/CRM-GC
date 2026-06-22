@@ -92,13 +92,63 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| _To be added by /architecture_ | | |
+| Aktivitäten als eigene Tabelle (Verweis auf Kunde), FK ON DELETE CASCADE | Mehrere Aktivitäten pro Kunde; verschwinden mit dem Kunden (PROJ-3/PROJ-4) | 2026-06-22 |
+| Kein „Erledigt"-Feld — Abhaken löscht die Zeile | Nutzerwunsch (keine Historie); Folge-Aktivität-Dialog erledigt den „nächsten Schritt" | 2026-06-22 |
+| Farbstatus berechnet (nicht gespeichert), bezogen auf „heute" Europe/Berlin | Immer korrekt ohne nächtlichen Hintergrundjob | 2026-06-22 |
+| Board-Marker je Kunde per Aggregat (frühestes Datum / Überfällig-Kennzeichen) | Effizient bei vielen Karten; ersetzt das bisherige „alle gelb" | 2026-06-22 |
+| Zentrale Seite unter eigener Route `/aktivitaeten` + Menüpunkt „Aktivitäten" | Tagesübersicht, getrennt vom Board | 2026-06-22 |
+| Native Datums-/Uhrzeit-Eingaben statt Datepicker-Paket | Einfach, keine neue Abhängigkeit | 2026-06-22 |
+| Umsetzung über Next Server Actions + RLS wie bei `customers`/`notes` | Konsistent; geteilte Team-Daten geschützt | 2026-06-22 |
+| Aktivitäts-Typen als erweiterbare App-Liste (5 Startwerte) | Wie Kategorie/Quelle; Pflege später über Listen-Verwaltung | 2026-06-22 |
+| „Folge-Aktivität planen" als Frontend-Dialog nach Abhaken (Datum +7 Tage vorbelegt) | Pipedrive-Muster „immer eine nächste Aktivität" | 2026-06-22 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Bausteine der Oberfläche
+```
+Zentrale Seite „/aktivitaeten"  (Menüpunkt „Aktivitäten" oben rechts, neben „Daten importieren")
+├── Filter:  Überfällig · Heute · Zukunft   (Standard: alle offenen nach Fälligkeit sortiert)
+└── Liste (nach Fälligkeit): Typ-Symbol · Kunde · Fälligkeit (Datum/Uhrzeit) · Notiz · [✓ Abhaken] [Bearbeiten] [Löschen]
+       └── Klick auf die Zeile → Kundenakte
+
+Kundenakte „/kunde/[id]"  (aus PROJ-4)
+├── Anlege-Leiste → Reiter „Aktivität" → Formular: Typ ▾ · Datum · Uhrzeit (optional) · Notiz · [Speichern]
+├── „Fokus": dringendste Aktivität (Typ, Datum/Uhrzeit) + [✓ Abhaken]
+└── Verlauf → Reiter „Aktivitäten": geplante Aktivitäten (farbig nach Datum), je [✓ Abhaken] [Bearbeiten] [Löschen]
+
+Abhaken (überall gleich) → Aktivität wird entfernt → Dialog „Nächste Aktivität planen"
+       (Kunde vorbelegt, Datum auf +7 Tage) → [Speichern]  oder  [Überspringen]
+
+Board „/"  (aus PROJ-2)
+└── Kundenkarte → Aktivitäts-Marker zeigt jetzt den echten Status (🔴 überfällig / 🟢 heute / ⚪ zukünftig / ⚠️ keine)
+```
+
+### Datenmodell (in Klartext)
+- **Aktivitäten** (neue Tabelle): Verweis auf den Kunden, Typ, Fälligkeitsdatum, optionale Uhrzeit, optionale Notiz, Ersteller, Zeitstempel. **Kein „Erledigt"-Feld** – Abhaken löscht die Zeile. Beim Löschen des Kunden gehen seine Aktivitäten automatisch mit (CASCADE).
+- Der **Farbstatus** (überfällig/heute/zukünftig) wird **nicht gespeichert, sondern berechnet** – aus dem Datum im Vergleich zu „heute" (Zeitzone Europe/Berlin). So bleibt er ohne nächtlichen Hintergrundjob immer korrekt.
+- **Aktivitäts-Typen** als erweiterbare App-Liste (die 5 Startwerte), genau wie Kategorie/Quelle.
+- Der **Board-Marker je Kunde** wird aus dessen Aktivitäten zusammengefasst (Vorrang: überfällig → heute → zukünftig; nichts → gelb). Auch die Sortierung „Letzte Aktivität" nutzt das (Kunden ohne/überfällig oben).
+
+Speicherort: Supabase (PostgreSQL), geteilte Team-Daten, Row Level Security.
+
+### Der „Abhaken + Folge planen"-Ablauf
+1. Klick auf den Haken an einer Aktivität → die Aktivität wird gelöscht.
+2. Direkt danach öffnet sich der Dialog **„Nächste Aktivität planen"** (derselbe Kunde, Datum auf +7 Tage vorbelegt, alles änderbar).
+3. **Speichern** → neue Aktivität entsteht. **Überspringen** → keine; hat der Kunde dann keine Aktivität mehr, erscheint das gelbe Warndreieck.
+
+### Tech-Entscheidungen (warum)
+- **Aktivitäten als eigene Tabelle** mit Verweis auf den Kunden (CASCADE): mehrere pro Kunde, verschwinden mit dem Kunden – passt zu PROJ-3/PROJ-4.
+- **Farbstatus berechnet statt gespeichert:** „heute/überfällig" stimmt immer von selbst, kein Hintergrundjob nötig.
+- **Board-Marker per Aggregat** (frühestes Datum / Überfällig-Kennzeichen je Kunde): effizient auch bei vielen Karten.
+- **Native Datums-/Uhrzeit-Eingabe** (kein zusätzliches Kalender-Paket): einfach, keine neue Abhängigkeit.
+- **Server-Aktionen + RLS** wie bei `customers`/`notes`: konsistent, geteilte Team-Daten geschützt.
+- **„Folge-Aktivität planen" als Dialog im Frontend** nach erfolgreichem Abhaken: setzt das Pipedrive-Muster „immer eine nächste Aktivität" um.
+
+### Abhängigkeiten (zu installieren)
+- **Keine neuen Pakete.** shadcn/ui-Bausteine (Dialog, Auswahl, Eingabe, Tabs, Tabelle) sind vorhanden; Datum/Uhrzeit über native Browser-Eingabefelder.
 
 ## QA Test Results
 _To be added by /qa_

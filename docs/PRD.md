@@ -20,7 +20,7 @@ Zunächst der Geschäftsführer der G+C Facility GmbH als alleiniger Vertriebsnu
 | P0 (MVP) | Pipeline-basierte Kundenverwaltung (Kanban, Drag-and-Drop) | Planned |
 | P0 (MVP) | Excel-Import mit Spaltenzuordnung | Planned |
 | P0 (MVP) | Kunden-/Auftrags-Detailansicht mit komplettem Verlauf | Planned |
-| P0 (MVP) | Aktivitätenplanung und Aktivitätenliste | Roadmap |
+| P0 (MVP) | Aktivitätenplanung und Aktivitätenliste | Planned |
 | P0 (MVP) | Notizen am Kunden/Auftrag | in PROJ-4 |
 | P0 (MVP) | E-Mail-Versand und Gmail-Postfach-Sync (voll) | Roadmap |
 | P0 (MVP) | Click-to-Call über Placetel | Roadmap |

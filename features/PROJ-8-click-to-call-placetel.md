@@ -119,7 +119,56 @@ PhoneLink (einheitlicher Telefon-Link-Baustein)
 - **Kein Backend nötig** (rein klientseitig). Hinweis zum Test: Ob `tel:` oder `callto:` deine Placetel-App tatsächlich wählt, zeigt sich erst auf deinem PC — dafür ist der Umschalter da.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-06-23
+**App URL:** http://localhost:3000
+**Tester:** QA Engineer (AI)
+
+> Rein klientseitige Funktion. Die Nummern-Aufbereitung ist per Unit-Tests abgedeckt, der Zugangsschutz der Kundenakte über die PROJ-2-E2E. Ob `tel:` oder `callto:` wählt, hängt von der lokalen Placetel-App ab → über den Umschalter testbar.
+
+### Acceptance Criteria Status
+- [x] **AC-1 – Nummer als Anruf-Link mit Symbol:** `PhoneLink` rendert Link + Telefon-Symbol.
+- [x] **AC-2 – Klick startet Anruf (tel:/callto:):** `href = <schema>:<bereinigte Nummer>`; Schema aus der Einstellung. (Tatsächliches Wählen ist OS-/Placetel-abhängig.)
+- [x] **AC-3 – Keine Nummer → kein Link:** `PhoneLink` zeigt nur „—".
+- [x] **AC-4 – Bereinigung, Anzeige unverändert:** `toDialNumber` (unit-getestet); Anzeige bleibt die Roh-Nummer.
+- [x] **AC-5 – Umschalten wirkt auf alle Links:** gemeinsamer Context (`CallSchemeProvider`).
+- [x] **AC-6 – Wahl überlebt Neuladen (geräte-lokal):** Browser-Speicher, beim Laden eingelesen.
+- [x] **AC-7 – Überall klickbar (einheitlicher Baustein):** ein wiederverwendbarer `PhoneLink`; aktuell in der Kundenakte, künftige Stellen erben es.
+- [x] **AC-8 – Nicht angemeldet → Login:** Kundenakte hinter Login (PROJ-2-E2E, 26/26 grün).
+
+**Ergebnis: 8/8 Akzeptanzkriterien abgedeckt.**
+
+### Edge Cases Status
+- [x] **Kein Placetel-Handler / Desktop:** Klick bewirkt nichts (OS findet keinen Handler); Mobil öffnet den Dialer — kein App-Fehler.
+- [x] **Unsaubere/leere Nummer:** kein Link, nur Text (`toDialNumber` → null, unit-getestet).
+- [x] **International (+49 …):** „+" und Ziffern bleiben erhalten (unit-getestet).
+- [x] **Umschalten ohne Neuladen:** Links nutzen sofort das neue Schema (Context).
+- [~] **Mehrere Nummern in einem Feld:** wird as-is bereinigt (bekannte Einschränkung, selten).
+
+### Security Audit Results
+- [x] **Kein Injection-Risiko im Link:** `href` besteht aus festem Schema (`tel`/`callto`) + ausschließlich „+"/Ziffern; kein `javascript:` o.ä. möglich. Anzeigetext wird von React escaped.
+- [x] **Authentifizierung:** Kundendaten nur für angemeldete Nutzer (unverändert, PROJ-1).
+- [x] **Keine neuen Daten/Secrets:** rein klientseitig; im Browser-Speicher nur „tel"/„callto" (beim Lesen validiert).
+- [i] **Rate Limiting:** nicht relevant (kein Server-Aufruf).
+
+### Automated Tests
+- **Unit (Vitest): 37/37 grün** — inkl. `toDialNumber` (`src/lib/phone/format.test.ts`, 3).
+- **E2E (Playwright): 26/26 grün** — keine Regression (PROJ-8 ohne neue Route; Kundenakte über PROJ-2 abgesichert).
+- **Typen:** `tsc --noEmit` sauber.
+
+### Bugs Found
+- Keine kritischen/hohen/mittleren Fehler.
+- **INFO:** Welches Schema (tel:/callto:) tatsächlich wählt, hängt von der lokalen Placetel-App ab — über den Umschalter im Nutzer-Menü zu ermitteln.
+- **INFO:** `PhoneLink` wird aktuell nur in der Kundenakte verwendet (die einzige Stelle mit Telefonnummer); der wiederverwendbare Baustein deckt künftige Stellen ab.
+
+### Summary
+- **Acceptance Criteria:** 8/8 abgedeckt
+- **Bugs Found:** 0 (2 informative Hinweise)
+- **Security:** Bestanden (kein Injection-Risiko, Auth unverändert, keine neuen Secrets)
+- **Production Ready:** **YES** — empfohlen: kurz live testen, welches Schema deine Placetel-App wählt.
+
+## Deployment
+_To be added by /deploy_
 
 ## Deployment
 _To be added by /deploy_

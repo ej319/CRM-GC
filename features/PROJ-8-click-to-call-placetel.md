@@ -71,13 +71,43 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| _To be added by /architecture_ | | |
+| Rein klientseitig (kein Backend, keine Tabelle) | Es wird nur ein Link erzeugt + eine geräte-lokale Einstellung gespeichert | 2026-06-23 |
+| Anruf-Schema (tel:/callto:) im Browser-Speicher + gemeinsamer Zustand | Geräteabhängig (lokale Placetel-App); hält Umschalter und Links ohne Neuladen synchron | 2026-06-23 |
+| Einheitlicher `PhoneLink`-Baustein | „überall klickbar"; künftige Stellen erben die Funktion | 2026-06-23 |
+| Nummer nur für den Link bereinigt (+/Ziffern), Anzeige unverändert | Zuverlässiges Wählen bei lesbarer Anzeige | 2026-06-23 |
+| Standard `tel:`; anfänglich `tel:`, beim Laden auf den gespeicherten Wert | Sicherer Standard, keine Hydratations-Konflikte | 2026-06-23 |
+| Keine neuen Pakete (vorhandene shadcn/lucide-Bausteine) | Kein Eigenbau, kein Risiko | 2026-06-23 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Bausteine der Oberfläche
+```
+Anruf-Schema (geräte-lokal, Standard „tel:")  — kleiner Zustand, aus dem Browser-Speicher geladen
+└── Umschalter im Nutzer-Menü (oben rechts):  tel:  ⇄  callto:
+
+PhoneLink (einheitlicher Telefon-Link-Baustein)
+├── zeigt die Nummer + Telefon-Symbol
+├── Klick öffnet  <schema>:<bereinigte Nummer>  → Placetel-App wählt
+├── verwendet in der Kundenakte (Feld „Telefon") — und überall, wo künftig eine Nummer steht
+└── keine Nummer / nach Bereinigung leer  → nur Text „—", kein Link
+```
+
+### Datenmodell (in Klartext)
+- **Keine Datenbank, keine neue Tabelle.** Gespeichert wird nur **eine geräte-lokale Einstellung**: das „Anruf-Schema" (`tel:` oder `callto:`, Standard `tel:`) im Browser-Speicher des jeweiligen PCs.
+- Der Anruf-**Link** nutzt eine **bereinigte** Nummer (führendes „+" + Ziffern, ohne Leerzeichen/Klammern); die **Anzeige** bleibt wie eingegeben.
+
+### Tech-Entscheidungen (warum)
+- **Rein klientseitig:** Es wird nur ein Link erzeugt — kein Server, keine Tabelle, kein API-Schlüssel.
+- **Einstellung geräte-lokal** (Browser-Speicher), weil sie von der lokalen Placetel-App des jeweiligen PCs abhängt; über einen kleinen gemeinsamen Zustand verteilt, damit das **Umschalten die Links sofort** ändert (ohne Neuladen).
+- **Ein wiederverwendbarer `PhoneLink`-Baustein:** erfüllt „überall klickbar" und lässt künftige Anzeige-Stellen die Funktion automatisch erben.
+- **Nummer nur für den Link bereinigt**, Anzeige unverändert: zuverlässiges Wählen bei lesbarer Darstellung.
+- **shadcn/ui-Bausteine** (Schalter, Menüeintrag) und das Telefon-Symbol sind vorhanden — kein Eigenbau.
+
+### Abhängigkeiten (zu installieren)
+- **Keine neuen Pakete.**
 
 ## QA Test Results
 _To be added by /qa_

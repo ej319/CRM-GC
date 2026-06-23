@@ -2,6 +2,7 @@ import "server-only";
 
 import { google } from "googleapis";
 
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildRawMessage, type RawAttachment } from "@/lib/email/mime";
 import type { GmailStatus } from "@/lib/email/data";
@@ -52,10 +53,11 @@ interface ConnectionRow {
   token_expiry: string | null;
 }
 
-/** Nach Google-Rückkehr: Code gegen Tokens tauschen und Verbindung serverseitig speichern. */
+/** Nach Google-Rückkehr: Code gegen Tokens tauschen und Verbindung des Nutzers speichern. */
 export async function connectFromCode(
   code: string,
   redirectUri: string,
+  userId: string,
 ): Promise<string> {
   const client = getOAuthClient(redirectUri);
   const { tokens } = await client.getToken(code);
@@ -68,13 +70,13 @@ export async function connectFromCode(
   const admin = createAdminClient();
 
   // Fehlt der Refresh-Token (Google liefert ihn nur bei erneuter Zustimmung),
-  // den bestehenden behalten, falls vorhanden.
+  // den bestehenden Token dieses Nutzers behalten, falls vorhanden.
   let refreshToken = tokens.refresh_token ?? null;
   if (!refreshToken) {
     const { data: existing } = await admin
       .from("gmail_accounts")
       .select("refresh_token")
-      .eq("email", email)
+      .eq("user_id", userId)
       .maybeSingle();
     refreshToken = (existing as { refresh_token: string } | null)?.refresh_token ?? null;
   }
@@ -84,33 +86,41 @@ export async function connectFromCode(
     );
   }
 
-  // v1: ein geteiltes Postfach – bestehende Verbindung(en) ersetzen.
-  await admin.from("gmail_accounts").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-  const { error } = await admin.from("gmail_accounts").insert({
-    email,
-    access_token: tokens.access_token ?? null,
-    refresh_token: refreshToken,
-    token_expiry: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
-  });
+  // Pro Nutzer genau eine Verbindung – bestehende ersetzen (jeder sendet aus seinem Postfach).
+  const { error } = await admin.from("gmail_accounts").upsert(
+    {
+      user_id: userId,
+      email,
+      access_token: tokens.access_token ?? null,
+      refresh_token: refreshToken,
+      token_expiry: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
+    },
+    { onConflict: "user_id" },
+  );
   if (error) throw new Error(error.message);
   return email;
 }
 
-async function getConnection(): Promise<ConnectionRow | null> {
+async function getConnection(userId: string): Promise<ConnectionRow | null> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("gmail_accounts")
     .select("id, email, access_token, refresh_token, token_expiry")
-    .limit(1)
+    .eq("user_id", userId)
     .maybeSingle();
   return (data as ConnectionRow | null) ?? null;
 }
 
-/** Verbindungsstatus für die Oberfläche – greift NIE die Tokens nach außen durch. */
+/** Verbindungsstatus des angemeldeten Nutzers – greift NIE die Tokens nach außen durch. */
 export async function getStatus(): Promise<GmailStatus> {
   if (!gmailConfigured()) return { connected: false };
   try {
-    const conn = await getConnection();
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { connected: false };
+    const conn = await getConnection(user.id);
     return conn ? { connected: true, email: conn.email } : { connected: false };
   } catch {
     // Service-Role-Key noch nicht eingerichtet o.Ä. → als „nicht verbunden" behandeln.
@@ -118,10 +128,10 @@ export async function getStatus(): Promise<GmailStatus> {
   }
 }
 
-/** Verbindung trennen (Tokens löschen). */
-export async function disconnect(): Promise<void> {
+/** Verbindung des Nutzers trennen (Tokens löschen). */
+export async function disconnect(userId: string): Promise<void> {
   const admin = createAdminClient();
-  await admin.from("gmail_accounts").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  await admin.from("gmail_accounts").delete().eq("user_id", userId);
 }
 
 interface SendOptions {
@@ -132,12 +142,13 @@ interface SendOptions {
   attachments?: RawAttachment[];
 }
 
-/** Versendet eine E-Mail über die Gmail-API im Namen des verbundenen Postfachs. */
+/** Versendet eine E-Mail über die Gmail-API im Namen des Postfachs des Nutzers. */
 export async function sendMail(
+  userId: string,
   opts: SendOptions,
 ): Promise<{ messageId: string; from: string }> {
   if (!gmailConfigured()) throw new GmailReconnectError("NOT_CONFIGURED");
-  const conn = await getConnection();
+  const conn = await getConnection(userId);
   if (!conn) throw new GmailReconnectError("NOT_CONNECTED");
 
   const client = getOAuthClient();

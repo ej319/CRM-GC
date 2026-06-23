@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.redirect(new URL("/login", origin));
 
   try {
-    await connectFromCode(code, `${origin}/api/gmail/callback`);
+    await connectFromCode(code, `${origin}/api/gmail/callback`, user.id);
     return back("connected");
   } catch {
     return back("error");

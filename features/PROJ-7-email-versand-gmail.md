@@ -84,7 +84,7 @@
 | Öffnungs-Tracking (Zähl-Pixel) in v1 enthalten | Nutzer-Auswahl; mit DSGVO-/Zuverlässigkeits-Vorbehalt (offene Frage) | 2026-06-23 |
 | Vorlagen, „Feld einfügen", Vorlagen-Verwaltung/-Anhänge → PROJ-9 | Eigene Funktion laut Roadmap; baut auf PROJ-7 auf | 2026-06-23 |
 | Meetingplaner / Sequenzen raus | Nicht benötigt / andere Features (PROJ-10) | 2026-06-23 |
-| Ein verbundenes Postfach (gc-facility.de), Token nur serverseitig | Einzelnutzer jetzt; pro-Nutzer später; Token nie im Browser | 2026-06-23 |
+| ~~Ein gemeinsames Postfach~~ → **pro Nutzer ein eigenes Postfach** (jede angemeldete Person sendet aus ihrer eigenen `…@gc-facility.de`-Adresse), Token nur serverseitig | Nutzer-Wunsch (2026-06-23): Mitarbeiter senden später aus ihrem eigenen Konto; Mehrnutzer von Beginn an sauber; Token nie im Browser | 2026-06-23 |
 | Versand über Gmail-API (erscheint in Gmail „Gesendet") | „Offizielle Google-Anbindung", Konsistenz mit dem echten Postfach | 2026-06-23 |
 
 ### Technical Decisions
@@ -176,7 +176,7 @@ Das **E-Mail-Schreibfenster als Vorschau** ist gebaut — die Oberfläche steht,
 Der komplette Versand-Code ist gebaut. Er ist **„inert"**, solange die Google-Zugangsdaten + der Service-Schlüssel als Umgebungs-Variablen fehlen (Seiten stürzen nicht ab – der E-Mail-Reiter zeigt dann „Gmail verbinden").
 
 **Datenbank (Supabase-Migration `proj7_email_versand_gmail`):**
-- `gmail_accounts` — ein geteiltes Postfach (v1). Tokens (`access_token`, `refresh_token`, `token_expiry`). **RLS aktiv, KEINE Policy** → kein Client-Zugriff; nur der Service-Role-Key liest/schreibt. `updated_at`-Trigger.
+- `gmail_accounts` — **eine Verbindung pro Nutzer** (`user_id`, eindeutig; jede Person sendet aus ihrem eigenen Postfach). Tokens (`access_token`, `refresh_token`, `token_expiry`). **RLS aktiv, KEINE Policy** → kein Client-Zugriff; nur der Service-Role-Key liest/schreibt, gefiltert nach `user_id`. `updated_at`-Trigger.
 - `emails` — gesendete Mails (Empfänger, CC, Betreff, `body_html`, Absender, `gmail_message_id`, `tracking_id`, `opened_at`, `sent_by`). Team-RLS wie notes/activities. Index auf `customer_id`, eindeutiger Index auf `tracking_id`. `ON DELETE CASCADE` am Kunden.
 - `email_attachments` — Metadaten (Name, Größe, Typ, Storage-Pfad), `ON DELETE CASCADE` an der E-Mail. Team-RLS.
 - Privater Storage-Bucket `email-attachments` mit Policies für angemeldete Nutzer.

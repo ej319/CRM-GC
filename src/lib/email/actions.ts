@@ -102,7 +102,7 @@ export async function sendEmail(
   let messageId = "";
   let from = "";
   try {
-    const res = await sendMail({ to, cc, subject, html, attachments: rawAttachments });
+    const res = await sendMail(user.id, { to, cc, subject, html, attachments: rawAttachments });
     messageId = res.messageId;
     from = res.from;
   } catch (err) {
@@ -195,7 +195,7 @@ export async function disconnectGmail(): Promise<Result<null>> {
   const { user } = await requireUser();
   if (!user) return { ok: false, error: "Nicht angemeldet" };
   try {
-    await gmailDisconnect();
+    await gmailDisconnect(user.id);
   } catch {
     return { ok: false, error: "Trennen fehlgeschlagen." };
   }

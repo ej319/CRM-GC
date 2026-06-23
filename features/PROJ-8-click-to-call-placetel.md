@@ -168,7 +168,5 @@ PhoneLink (einheitlicher Telefon-Link-Baustein)
 - **Production Ready:** **YES** — empfohlen: kurz live testen, welches Schema deine Placetel-App wählt.
 
 ## Deployment
-_To be added by /deploy_
-
-## Deployment
-_To be added by /deploy_
+- **Live:** https://crm-gc.vercel.app — Vercel-Projekt `ewgeni-s-projects/crm-gc`
+- **Deployed:** 2026-06-23 (MVP-Sammel-Deployment PROJ-1–5, 8)

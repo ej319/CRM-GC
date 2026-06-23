@@ -264,7 +264,6 @@ Speicherort: Supabase (PostgreSQL), geteilte Team-Daten, geschützt durch Row Le
 - **Production Ready:** **YES** (keine kritischen/hohen Fehler) – empfohlen: einmaliger Live-Klickdurchlauf mit Test-Datei vor dem Produktiv-Einsatz.
 
 ## Deployment
-_To be added by /deploy_
-
-## Deployment
-_To be added by /deploy_
+- **Live:** https://crm-gc.vercel.app — Vercel-Projekt `ewgeni-s-projects/crm-gc`
+- **Deployed:** 2026-06-23 (MVP-Sammel-Deployment PROJ-1–5, 8)
+- Hinweis: Für den KI-Vorschlag muss in Vercel `ANTHROPIC_API_KEY` gesetzt sein (optional; ohne Schlüssel lokaler Vorschlag).

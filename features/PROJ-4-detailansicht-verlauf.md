@@ -234,7 +234,5 @@ Speicherort: Supabase (PostgreSQL).
 - **Production Ready:** **YES** (keine kritischen/hohen Fehler) – empfohlen: einmaliger Live-Klickdurchlauf einer Notiz vor dem Produktiv-Einsatz.
 
 ## Deployment
-_To be added by /deploy_
-
-## Deployment
-_To be added by /deploy_
+- **Live:** https://crm-gc.vercel.app — Vercel-Projekt `ewgeni-s-projects/crm-gc`
+- **Deployed:** 2026-06-23 (MVP-Sammel-Deployment PROJ-1–5, 8)

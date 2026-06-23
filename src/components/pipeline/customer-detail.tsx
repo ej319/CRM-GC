@@ -33,6 +33,9 @@ import {
   deleteActivity as deleteActivityAction,
 } from "@/lib/activities/actions";
 import { focusActivity, type Activity } from "@/lib/activities/data";
+import { sendEmail } from "@/lib/email/actions";
+import type { Email } from "@/lib/email/data";
+import type { EmailDraft } from "@/components/detail/email-composer";
 import type { Customer } from "@/lib/pipeline/data";
 import type { Note } from "@/lib/notes/data";
 
@@ -49,10 +52,16 @@ export function CustomerDetail({
   customer,
   initialNotes,
   initialActivities,
+  initialEmails,
+  gmailConnected,
+  gmailEmail,
 }: {
   customer: Customer | null;
   initialNotes: Note[];
   initialActivities: Activity[];
+  initialEmails: Email[];
+  gmailConnected: boolean;
+  gmailEmail?: string;
 }) {
   if (!customer) {
     return (
@@ -71,6 +80,9 @@ export function CustomerDetail({
       customer={customer}
       initialNotes={initialNotes}
       initialActivities={initialActivities}
+      initialEmails={initialEmails}
+      gmailConnected={gmailConnected}
+      gmailEmail={gmailEmail}
     />
   );
 }
@@ -79,14 +91,21 @@ function CustomerDetailView({
   customer,
   initialNotes,
   initialActivities,
+  initialEmails,
+  gmailConnected,
+  gmailEmail,
 }: {
   customer: Customer;
   initialNotes: Note[];
   initialActivities: Activity[];
+  initialEmails: Email[];
+  gmailConnected: boolean;
+  gmailEmail?: string;
 }) {
   const [deleting, setDeleting] = useState(false);
   const [notes, setNotes] = useState<Note[]>(initialNotes);
   const [activities, setActivities] = useState<Activity[]>(initialActivities);
+  const [emails, setEmails] = useState<Email[]>(initialEmails);
   const [planNextOpen, setPlanNextOpen] = useState(false);
 
   // --- Notizen ---
@@ -157,9 +176,15 @@ function CustomerDetailView({
     setActivities((prev) => prev.filter((a) => a.id !== id));
   }
 
-  async function sendEmailPreview(): Promise<boolean> {
-    toast.info("E-Mail-Versand wird mit der Gmail-Anbindung aktiviert (Backend).");
-    return false;
+  async function handleSendEmail(draft: EmailDraft): Promise<boolean> {
+    const res = await sendEmail(customer.id, draft);
+    if (!res.ok) {
+      toast.error(res.error);
+      return false;
+    }
+    setEmails((prev) => [res.data, ...prev]);
+    toast.success("E-Mail gesendet.");
+    return true;
   }
 
   async function handleDelete() {
@@ -217,8 +242,11 @@ function CustomerDetailView({
           <DetailComposer
             onAddNote={addNote}
             onAddActivity={addActivity}
+            customerId={customer.id}
             customerEmail={customer.email}
-            onSendEmail={sendEmailPreview}
+            gmailConnected={gmailConnected}
+            gmailEmail={gmailEmail}
+            onSendEmail={handleSendEmail}
           />
 
           <Card className={focus ? undefined : "border-dashed"}>
@@ -249,6 +277,7 @@ function CustomerDetailView({
             onCompleteActivity={completeActivity}
             onEditActivity={editActivity}
             onDeleteActivity={deleteActivity}
+            emails={emails}
           />
         </div>
       </div>

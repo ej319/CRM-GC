@@ -14,7 +14,10 @@ import { EmailComposer, type EmailDraft } from "./email-composer";
 interface DetailComposerProps {
   onAddNote: (body: string) => Promise<boolean>;
   onAddActivity: (values: ActivityFormValues) => Promise<boolean>;
+  customerId: string;
   customerEmail?: string;
+  gmailConnected: boolean;
+  gmailEmail?: string;
   onSendEmail: (draft: EmailDraft) => Promise<boolean>;
 }
 
@@ -30,7 +33,10 @@ function ComingSoon({ label }: { label: string }) {
 export function DetailComposer({
   onAddNote,
   onAddActivity,
+  customerId,
   customerEmail,
+  gmailConnected,
+  gmailEmail,
   onSendEmail,
 }: DetailComposerProps) {
   const [body, setBody] = useState("");
@@ -87,7 +93,13 @@ export function DetailComposer({
             />
           </TabsContent>
           <TabsContent value="email" className="mt-4">
-            <EmailComposer customerEmail={customerEmail} onSend={onSendEmail} />
+            <EmailComposer
+              customerId={customerId}
+              customerEmail={customerEmail}
+              connected={gmailConnected}
+              senderEmail={gmailEmail}
+              onSend={onSendEmail}
+            />
           </TabsContent>
           <TabsContent value="file">
             <ComingSoon label="Dateien anhängen (PROJ-13)" />

@@ -62,14 +62,14 @@
 - Sicherheit: Zugriff nur für angemeldete Nutzer; RLS auf den neuen E-Mail-Tabellen; geteilte Team-Daten.
 
 ## Open Questions
-- [ ] **Öffnungs-Tracking & DSGVO:** Tracking per Pixel ist in DE rechtlich heikel. Brauchen wir einen Hinweis (Footer)/Einwilligung, akzeptierst du das Risiko für B2B-Mails, oder soll es abschaltbar sein? → vor dem Bauen klären.
-- [ ] **CC/BCC** im MVP enthalten? (Vorschlag: ja, optional ein-/ausklappbar.)
-- [ ] **Signatur** (aus Gmail übernommen oder im CRM hinterlegt) im MVP? (Vorschlag: später.)
-- [ ] **„Gmail verbinden"** wo anbieten — Nutzer-Menü/Einstellungen und/oder Prompt im E-Mail-Reiter? (Vorschlag: beides.)
-- [ ] **Google-OAuth-Verifizierung:** Aufwand/Abhängigkeit klären, falls über den internen Nutzer hinaus genutzt (sensible Scopes).
-- [ ] **Betreff Pflicht?** (Vorschlag: leeren Betreff mit Rückfrage erlauben.)
-- [ ] **Token-Verschlüsselung:** reicht die Standard-Verschlüsselung von Supabase „at rest", oder Supabase Vault für die Gmail-Token? → /backend
-- [ ] **`googleapis` vs. direkte REST-Aufrufe** (Bündelgröße/Aufwand) → /backend entscheidet final.
+- [x] **Öffnungs-Tracking & DSGVO:** Entscheidung des Nutzers (2026-06-23): **Tracking immer an**, B2B-Risiko bewusst akzeptiert. Hinweis/Einwilligung kann später ergänzt werden.
+- [x] **CC/BCC** im MVP: **CC enthalten** (optional ein-/ausklappbar). BCC bleibt vorerst weg.
+- [ ] **Signatur** (aus Gmail übernommen oder im CRM hinterlegt) im MVP? (Vorschlag: später.) — weiterhin offen.
+- [x] **„Gmail verbinden"** wo anbieten: v1 **Prompt im E-Mail-Reiter** (Aufforderung mit Button, wenn nicht verbunden). Eintrag im Nutzer-Menü/Einstellungen kann später ergänzt werden.
+- [ ] **Google-OAuth-Verifizierung:** weiterhin offen; im „Testing"-Modus reicht es für den internen Einzelnutzer. Verifizierung erst bei breiterer Nutzung.
+- [x] **Betreff Pflicht?** Nein – **leerer Betreff erlaubt** (im Verlauf als „(kein Betreff)" dargestellt).
+- [x] **Token-Speicherung:** Tokens liegen in `gmail_accounts` mit **RLS „alles verboten"** – Zugriff ausschließlich über den serverseitigen **Service-Role-Key** (umgeht RLS, nie im Browser). Setzt auf Supabases Verschlüsselung „at rest" auf. Supabase Vault als spätere Härtung möglich.
+- [x] **`googleapis` vs. REST:** **`googleapis`** gewählt (übernimmt Token-Refresh + API-Aufrufe zuverlässig).
 
 ## Decision Log
 
@@ -171,6 +171,36 @@ Das **E-Mail-Schreibfenster als Vorschau** ist gebaut — die Oberfläche steht,
 - Verifikation: `tsc --noEmit` sauber, `npm test` 37/37 grün.
 
 **Noch offen fürs Backend:** Gmail-OAuth-Verbindung + Token (server-seitig), echte Versand-Server-Action, Speichern der gesendeten Mail im Verlauf, Öffnungs-Tracking (DSGVO-Entscheidung), Versand in „Gesendet". Voraussetzung: Google-Cloud-Einrichtung durch den Nutzer (siehe „Einmalige Einrichtung").
+
+### Backend (2026-06-23)
+Der komplette Versand-Code ist gebaut. Er ist **„inert"**, solange die Google-Zugangsdaten + der Service-Schlüssel als Umgebungs-Variablen fehlen (Seiten stürzen nicht ab – der E-Mail-Reiter zeigt dann „Gmail verbinden").
+
+**Datenbank (Supabase-Migration `proj7_email_versand_gmail`):**
+- `gmail_accounts` — ein geteiltes Postfach (v1). Tokens (`access_token`, `refresh_token`, `token_expiry`). **RLS aktiv, KEINE Policy** → kein Client-Zugriff; nur der Service-Role-Key liest/schreibt. `updated_at`-Trigger.
+- `emails` — gesendete Mails (Empfänger, CC, Betreff, `body_html`, Absender, `gmail_message_id`, `tracking_id`, `opened_at`, `sent_by`). Team-RLS wie notes/activities. Index auf `customer_id`, eindeutiger Index auf `tracking_id`. `ON DELETE CASCADE` am Kunden.
+- `email_attachments` — Metadaten (Name, Größe, Typ, Storage-Pfad), `ON DELETE CASCADE` an der E-Mail. Team-RLS.
+- Privater Storage-Bucket `email-attachments` mit Policies für angemeldete Nutzer.
+- Sicherheits-Advisor: nur INFO „RLS enabled, no policy" auf `gmail_accounts` — **gewollt**.
+
+**Servercode:**
+- `src/lib/supabase/admin.ts` — Service-Role-Client (`server-only`); wirft bei fehlendem `SUPABASE_SERVICE_ROLE_KEY`, Aufrufer behandeln das als „nicht verbunden".
+- `src/lib/email/gmail.ts` (`server-only`) — OAuth-URL bauen, Code→Tokens tauschen + verbundene Adresse speichern (`connectFromCode`), Status (`getStatus`, gibt nie Tokens nach außen), Senden über die Gmail-API (`sendMail`) inkl. Token-Refresh + Persistenz, `GmailReconnectError` bei abgelaufener Verbindung.
+- `src/lib/email/mime.ts` — RFC-822-Bau (HTML + Anhänge, RFC-2047 für Umlaute im Betreff) als base64url.
+- `src/lib/email/{data,queries,actions}.ts` — Typen/Hilfen, `getEmails`, Server-Action `sendEmail` (validiert Empfänger, lädt Anhänge aus dem Storage, bettet Tracking-Pixel ein, sendet, speichert im Verlauf) + `disconnectGmail`.
+- API-Routen (Node-Runtime): `GET /api/gmail/connect` (Start, CSRF-State im Cookie), `GET /api/gmail/callback` (Tokens speichern, Rückkehr mit `?gmail=…`), `GET /api/email/track/[trackingId]` (öffentlich, setzt `opened_at`, liefert 1×1-Pixel).
+- `src/components/gmail-result-toast.tsx` in der App-Shell zeigt die Rückmeldung nach dem Verbinden.
+
+**Frontend-Anbindung:** `EmailComposer` zeigt bei fehlender Verbindung „Gmail verbinden", sonst das echte Schreibfenster (An vorbelegt, optionales CC, Anhänge per Browser-Upload in den Storage). Gesendete Mails erscheinen sofort im Verlauf (Reiter „E-Mails") mit Anhang-Download und „geöffnet am …".
+
+**Verifikation:** `tsc --noEmit` sauber · `npm test` 50/50 grün (neu: `data.test.ts`, `mime.test.ts`) · `next build` erfolgreich (alle Routen kompiliert). OAuth-/Pixel-Routen hängen an der Live-Google-Anbindung → werden in `/qa` manuell geprüft, sobald die Einrichtung steht.
+
+### Benötigte Umgebungs-Variablen (vom Nutzer in Vercel + `.env.local` zu setzen)
+Der Agent kann `.env`-Dateien nicht schreiben — diese drei Werte trägst du selbst ein:
+- `GMAIL_CLIENT_ID` — OAuth-Client-ID aus der Google Cloud Console
+- `GMAIL_CLIENT_SECRET` — zugehöriges Secret
+- `SUPABASE_SERVICE_ROLE_KEY` — Service-Role-Key aus Supabase (Dashboard → Project Settings → API). **Streng geheim**, nur serverseitig.
+
+**Redirect-URIs** in Google (beide eintragen): `http://localhost:3000/api/gmail/callback` (Test) und `https://<deine-vercel-domain>/api/gmail/callback` (Produktion).
 
 ## QA Test Results
 _To be added by /qa_

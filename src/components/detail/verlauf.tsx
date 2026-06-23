@@ -9,9 +9,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NoteItem } from "./note-item";
 import { ActivityItem } from "./activity-item";
+import { EmailItem } from "./email-item";
 import type { ActivityFormValues } from "./activity-form";
 import { isOpen, type Activity } from "@/lib/activities/data";
 import { VERLAUF_FILTERS, type Note } from "@/lib/notes/data";
+import type { Email } from "@/lib/email/data";
 
 interface VerlaufProps {
   notes: Note[];
@@ -21,6 +23,7 @@ interface VerlaufProps {
   onCompleteActivity: (id: string) => void;
   onEditActivity: (id: string, values: ActivityFormValues) => Promise<boolean>;
   onDeleteActivity: (id: string) => void;
+  emails: Email[];
 }
 
 function sortActivities(activities: Activity[]): Activity[] {
@@ -73,6 +76,16 @@ function ActivitiesList({
   );
 }
 
+function EmailsList({ emails }: Pick<VerlaufProps, "emails">) {
+  return (
+    <div className="space-y-4">
+      {emails.map((email) => (
+        <EmailItem key={email.id} email={email} />
+      ))}
+    </div>
+  );
+}
+
 function Empty() {
   return (
     <p className="py-6 text-center text-sm text-muted-foreground">
@@ -91,8 +104,9 @@ function ComingSoon({ label }: { label: string }) {
 
 /** Verlauf-Zeitleiste mit Filter-Reitern (Notizen + Aktivitäten; E-Mails/Dateien folgen). */
 export function Verlauf(props: VerlaufProps) {
-  const { notes, activities } = props;
-  const nothing = notes.length === 0 && activities.length === 0;
+  const { notes, activities, emails } = props;
+  const nothing =
+    notes.length === 0 && activities.length === 0 && emails.length === 0;
 
   return (
     <Card>
@@ -109,6 +123,9 @@ export function Verlauf(props: VerlaufProps) {
                 {f.key === "activities" && activities.length > 0
                   ? ` (${activities.length})`
                   : ""}
+                {f.key === "emails" && emails.length > 0
+                  ? ` (${emails.length})`
+                  : ""}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -119,6 +136,7 @@ export function Verlauf(props: VerlaufProps) {
             ) : (
               <>
                 <ActivitiesList {...props} />
+                <EmailsList {...props} />
                 <NotesList {...props} />
               </>
             )}
@@ -129,8 +147,8 @@ export function Verlauf(props: VerlaufProps) {
           <TabsContent value="activities" className="mt-4">
             {activities.length === 0 ? <Empty /> : <ActivitiesList {...props} />}
           </TabsContent>
-          <TabsContent value="emails">
-            <ComingSoon label="E-Mails (PROJ-7)" />
+          <TabsContent value="emails" className="mt-4">
+            {emails.length === 0 ? <Empty /> : <EmailsList {...props} />}
           </TabsContent>
           <TabsContent value="files">
             <ComingSoon label="Dateien (PROJ-13)" />

@@ -23,7 +23,7 @@ Zunächst der Geschäftsführer der G+C Facility GmbH als alleiniger Vertriebsnu
 | P0 (MVP) | Aktivitätenplanung und Aktivitätenliste | Planned |
 | P0 (MVP) | Notizen am Kunden/Auftrag | in PROJ-4 |
 | P0 (MVP) | E-Mail-Versand und Gmail-Postfach-Sync (voll) | Roadmap |
-| P0 (MVP) | Click-to-Call über Placetel | Roadmap |
+| P0 (MVP) | Click-to-Call über Placetel | Planned |
 | P1 | E-Mail-Vorlagen | Roadmap |
 | P1 | Pipeline-Automatik-Regeln | Roadmap |
 | P2 | Erinnerungen/Benachrichtigungen für Aktivitäten | Roadmap |

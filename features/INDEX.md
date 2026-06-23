@@ -22,7 +22,7 @@
 | PROJ-5 | Aktivitätenplanung und Aktivitätenliste | P0 | PROJ-1, PROJ-2, PROJ-4 | Approved | PROJ-5-aktivitaeten.md | 2026-06-22 |
 | PROJ-6 | Notizen am Kunden/Auftrag — geht in PROJ-4 auf | P0 | PROJ-4 | Merged → PROJ-4 | (siehe PROJ-4) | |
 | PROJ-7 | E-Mail-Versand und Gmail-Postfach-Sync (voll) | P0 | PROJ-1, PROJ-2 | Roadmap | | |
-| PROJ-8 | Click-to-Call über Placetel | P0 | PROJ-2, PROJ-4 | Roadmap | | |
+| PROJ-8 | Click-to-Call über Placetel | P0 | PROJ-2, PROJ-4 | Planned | PROJ-8-click-to-call-placetel.md | 2026-06-23 |
 | PROJ-9 | E-Mail-Vorlagen | P1 | PROJ-7 | Roadmap | | |
 | PROJ-10 | Pipeline-Automatik-Regeln | P1 | PROJ-2, PROJ-5, PROJ-7 | Roadmap | | |
 | PROJ-11 | Erinnerungen/Benachrichtigungen für Aktivitäten | P2 | PROJ-5 | Roadmap | | |

@@ -109,6 +109,15 @@ PhoneLink (einheitlicher Telefon-Link-Baustein)
 ### Abhängigkeiten (zu installieren)
 - **Keine neuen Pakete.**
 
+## Frontend-Implementierung (Stand 2026-06-23)
+- **Einheitlicher `PhoneLink`-Baustein** (`src/components/phone/phone-link.tsx`): zeigt die Nummer mit Telefon-Symbol und macht sie als `tel:`/`callto:`-Link klickbar; ohne wählbare Nummer nur Text („—" bzw. die Roh-Anzeige).
+- **Anruf-Schema (tel:/callto:)** über einen Context (`CallSchemeProvider`), der das Grund-Gerüst (`app-shell`) umschließt und die Wahl **geräte-lokal** im Browser speichert (Standard `tel:`). Umschalter als **Radio-Auswahl im Nutzer-Menü** („Anruf-Link (Placetel)": tel: / callto:) — wirkt sofort auf alle Links.
+- **Nummer-Aufbereitung** (`src/lib/phone/format.ts`, `toDialNumber`): führendes „+" + Ziffern, sonst kein Link; mit Unit-Tests (3).
+- **Kundenakte:** das Feld „Telefon" nutzt jetzt `PhoneLink`; der Platzhalter-Hinweis „kommt mit PROJ-8" wurde entfernt.
+- **Neue Dateien:** `src/lib/phone/{format,format.test}.ts`; `src/components/phone/{call-scheme,phone-link}.tsx`. Geändert: `app-shell.tsx` (Provider), `user-menu.tsx` (Umschalter), `customer-summary.tsx` (PhoneLink).
+- **Verifikation:** `tsc --noEmit` sauber; `npm test` 37/37 grün; Dev-Server kompiliert ohne Fehler.
+- **Kein Backend nötig** (rein klientseitig). Hinweis zum Test: Ob `tel:` oder `callto:` deine Placetel-App tatsächlich wählt, zeigt sich erst auf deinem PC — dafür ist der Umschalter da.
+
 ## QA Test Results
 _To be added by /qa_
 

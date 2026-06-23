@@ -12,9 +12,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useCallScheme, type CallScheme } from "@/components/phone/call-scheme";
 import { createClient } from "@/lib/supabase/client";
 
 interface UserMenuProps {
@@ -25,6 +28,7 @@ interface UserMenuProps {
 
 export function UserMenu({ name, email, avatarUrl }: UserMenuProps) {
   const [loading, setLoading] = useState(false);
+  const { scheme, setScheme } = useCallScheme();
 
   const initials = name
     .split(" ")
@@ -79,6 +83,17 @@ export function UserMenu({ name, email, avatarUrl }: UserMenuProps) {
             Daten importieren
           </Link>
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+          Anruf-Link (Placetel)
+        </DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={scheme}
+          onValueChange={(v) => setScheme(v as CallScheme)}
+        >
+          <DropdownMenuRadioItem value="tel">tel:</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="callto">callto:</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} disabled={loading}>
           <LogOut className="mr-2 h-4 w-4" />

@@ -24,6 +24,7 @@ import {
   type StageId,
 } from "@/lib/pipeline/data";
 import { updateCustomer, updateCustomerStage } from "@/lib/pipeline/actions";
+import { PhoneLink } from "@/components/phone/phone-link";
 
 function ReadRow({ label, value }: { label: string; value?: string }) {
   return (
@@ -209,7 +210,10 @@ export function CustomerSummary({ customer }: { customer: Customer }) {
               </span>
             ) : null}
             <ReadRow label="Ansprechpartner" value={data.contactName} />
-            <ReadRow label="Telefon" value={data.phone} />
+            <div className="space-y-0.5">
+              <p className="text-xs text-muted-foreground">Telefon</p>
+              <PhoneLink phone={data.phone} />
+            </div>
             <ReadRow label="E-Mail" value={data.email} />
             <ReadRow label="Adresse" value={addressLine} />
             <ReadRow label="Quelle" value={data.source} />
@@ -221,9 +225,6 @@ export function CustomerSummary({ customer }: { customer: Customer }) {
                   : undefined
               }
             />
-            <p className="pt-1 text-xs text-muted-foreground">
-              Direkt anrufen über die Nummer kommt mit der Placetel-Anbindung (PROJ-8).
-            </p>
           </div>
         )}
       </CardContent>

@@ -9,10 +9,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { todayInBerlin } from "@/lib/activities/data";
 import { ActivityForm, type ActivityFormValues } from "./activity-form";
+import { EmailComposer, type EmailDraft } from "./email-composer";
 
 interface DetailComposerProps {
   onAddNote: (body: string) => Promise<boolean>;
   onAddActivity: (values: ActivityFormValues) => Promise<boolean>;
+  customerEmail?: string;
+  onSendEmail: (draft: EmailDraft) => Promise<boolean>;
 }
 
 function ComingSoon({ label }: { label: string }) {
@@ -24,7 +27,12 @@ function ComingSoon({ label }: { label: string }) {
 }
 
 /** Anlege-Leiste oben: Notiz (aktiv) + Platzhalter-Reiter für Aktivität/E-Mail/Datei. */
-export function DetailComposer({ onAddNote, onAddActivity }: DetailComposerProps) {
+export function DetailComposer({
+  onAddNote,
+  onAddActivity,
+  customerEmail,
+  onSendEmail,
+}: DetailComposerProps) {
   const [body, setBody] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -78,8 +86,8 @@ export function DetailComposer({ onAddNote, onAddActivity }: DetailComposerProps
               onSubmit={onAddActivity}
             />
           </TabsContent>
-          <TabsContent value="email">
-            <ComingSoon label="E-Mails (PROJ-7)" />
+          <TabsContent value="email" className="mt-4">
+            <EmailComposer customerEmail={customerEmail} onSend={onSendEmail} />
           </TabsContent>
           <TabsContent value="file">
             <ComingSoon label="Dateien anhängen (PROJ-13)" />

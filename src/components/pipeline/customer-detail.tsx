@@ -157,6 +157,11 @@ function CustomerDetailView({
     setActivities((prev) => prev.filter((a) => a.id !== id));
   }
 
+  async function sendEmailPreview(): Promise<boolean> {
+    toast.info("E-Mail-Versand wird mit der Gmail-Anbindung aktiviert (Backend).");
+    return false;
+  }
+
   async function handleDelete() {
     setDeleting(true);
     const res = await deleteCustomer(customer.id);
@@ -209,7 +214,12 @@ function CustomerDetailView({
         </div>
 
         <div className="space-y-4 lg:col-span-2">
-          <DetailComposer onAddNote={addNote} onAddActivity={addActivity} />
+          <DetailComposer
+            onAddNote={addNote}
+            onAddActivity={addActivity}
+            customerEmail={customer.email}
+            onSendEmail={sendEmailPreview}
+          />
 
           <Card className={focus ? undefined : "border-dashed"}>
             <CardHeader>

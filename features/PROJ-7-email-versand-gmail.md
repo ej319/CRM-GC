@@ -1,6 +1,6 @@
 # PROJ-7: E-Mail-Versand aus der Kundenakte (Gmail)
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-06-23
 **Last Updated:** 2026-06-23
 
@@ -154,6 +154,23 @@ Verlauf → Reiter „E-Mails":  gesendete E-Mails
 
 ### Abhängigkeiten (zu installieren)
 - `googleapis` (Gmail-Versand + Token-Erneuerung). Evtl. ein kleiner MIME-Helfer zum Zusammenbauen der Nachricht mit Anhängen.
+
+## Implementation Notes
+
+### Frontend (2026-06-23)
+Das **E-Mail-Schreibfenster als Vorschau** ist gebaut — die Oberfläche steht, der echte Versand kommt mit dem Backend (Gmail-Anbindung).
+
+- **Neue Komponente** `src/components/detail/email-composer.tsx` (`EmailComposer`):
+  - Felder: **Von** (statisch: „dein verbundenes Gmail-Postfach"), **An** (mit der Kundenadresse vorbelegt — die zentrale Anforderung), **Betreff**, **Text** (mehrzeilig) und **Anhänge** (Datei-Auswahl → entfernbare Chips mit Dateiname).
+  - „Senden"-Button ist deaktiviert, solange kein Empfänger eingetragen ist.
+  - Ein Hinweis-Banner („Vorschau") erklärt, dass „Gmail verbinden", der echte Versand und die Text-Formatierung mit dem Backend aktiviert werden.
+  - Schnittstelle nach außen: `onSend(draft)` (Entwurf = `{ to, subject, body, attachments }`) gibt `true` bei Erfolg zurück → dann werden Betreff/Text/Anhänge geleert. Diese Schnittstelle bleibt im Backend gleich; dort wird der Vorschau-Stub durch die echte Gmail-Server-Action ersetzt.
+- **`src/components/detail/detail-composer.tsx`**: Der „E-Mail"-Reiter zeigt jetzt den `EmailComposer` statt des Platzhalters (`customerEmail` + `onSendEmail` durchgereicht).
+- **`src/components/pipeline/customer-detail.tsx`**: reicht `customer.email` an den Composer durch; `onSendEmail` ist im Vorschau-Modus ein Stub, der einen Hinweis-Toast zeigt („E-Mail-Versand wird mit der Gmail-Anbindung aktiviert (Backend).") und `false` zurückgibt (Felder bleiben erhalten).
+- Verwendete shadcn-Bausteine: Alert, Button, Input, Label, Textarea. Keine neue Abhängigkeit nötig.
+- Verifikation: `tsc --noEmit` sauber, `npm test` 37/37 grün.
+
+**Noch offen fürs Backend:** Gmail-OAuth-Verbindung + Token (server-seitig), echte Versand-Server-Action, Speichern der gesendeten Mail im Verlauf, Öffnungs-Tracking (DSGVO-Entscheidung), Versand in „Gesendet". Voraussetzung: Google-Cloud-Einrichtung durch den Nutzer (siehe „Einmalige Einrichtung").
 
 ## QA Test Results
 _To be added by /qa_

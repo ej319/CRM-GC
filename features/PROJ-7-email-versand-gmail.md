@@ -68,6 +68,8 @@
 - [ ] **„Gmail verbinden"** wo anbieten — Nutzer-Menü/Einstellungen und/oder Prompt im E-Mail-Reiter? (Vorschlag: beides.)
 - [ ] **Google-OAuth-Verifizierung:** Aufwand/Abhängigkeit klären, falls über den internen Nutzer hinaus genutzt (sensible Scopes).
 - [ ] **Betreff Pflicht?** (Vorschlag: leeren Betreff mit Rückfrage erlauben.)
+- [ ] **Token-Verschlüsselung:** reicht die Standard-Verschlüsselung von Supabase „at rest", oder Supabase Vault für die Gmail-Token? → /backend
+- [ ] **`googleapis` vs. direkte REST-Aufrufe** (Bündelgröße/Aufwand) → /backend entscheidet final.
 
 ## Decision Log
 
@@ -89,13 +91,69 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| _To be added by /architecture_ | | |
+| Eigener Gmail-OAuth-Flow getrennt vom Supabase-Login (Scope `gmail.send` + Refresh-Token) | Login liefert nur Identität; serverseitiges Senden braucht offline-Zugriff | 2026-06-23 |
+| Zugriffs-/Refresh-Token nur serverseitig (Supabase, RLS; Versand via Server-Aktion) | Sicherheit — Token nie im Browser | 2026-06-23 |
+| Versand über die Gmail-API im Namen des Postfachs | Erscheint in Gmail „Gesendet"; offizielle Anbindung (PRD) | 2026-06-23 |
+| `googleapis`-Bibliothek für Versand + Token-Refresh | Bewährt, übernimmt Refresh + Nachrichtenbau; weniger Eigenfehler | 2026-06-23 |
+| Anhänge im Supabase Storage + Metadaten in der DB | Standard, Bytes für den Versand verfügbar | 2026-06-23 |
+| Öffnungs-Tracking über unsichtbaren Pixel + öffentliche Erfassungs-Route | Einziger praktikabler Weg ohne tiefe Integration; DSGVO-Vorbehalt | 2026-06-23 |
+| Erste echte API-Routen der App (OAuth-Callback, Tracking-Pixel) | OAuth-Rückkehr und Pixel-Abruf brauchen Server-Endpunkte (keine Server-Action) | 2026-06-23 |
+| Nur Scope `gmail.send` in v1 | Minimalprinzip; Lese-Scope erst beim späteren Empfangs-Sync | 2026-06-23 |
+| Neue Umgebungs-Variablen für den Gmail-OAuth-Client | Eigener Google-Client nötig; vom Nutzer in Google Cloud anzulegen | 2026-06-23 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Bausteine der Oberfläche & Abläufe
+```
+„Gmail verbinden" (einmalig)
+├── Aktion im Nutzer-Menü/Einstellungen  ODER  Prompt im E-Mail-Reiter (wenn nicht verbunden)
+└── → Google-Zustimmungsseite (Sende-Berechtigung) → Rückkehr ins CRM → Verbindung serverseitig gespeichert
+
+Kundenakte „/kunde/[id]" → Anlege-Leiste → Reiter „E-Mail"
+├── nicht verbunden:  Hinweis + Button „Gmail verbinden"
+└── verbunden:  Schreibfenster
+      ├── Von:    verbundenes Postfach (fest)
+      ├── An:     aus der Kunden-E-Mail vorbelegt (änderbar)   [optional CC/BCC]
+      ├── Betreff
+      ├── Text mit einfacher Formatierung (HTML-Mail)
+      ├── Anhänge (Dateien hinzufügen)
+      └── [Senden] → über Gmail versendet
+
+Verlauf → Reiter „E-Mails":  gesendete E-Mails
+      └── Empfänger · Betreff · Zeit · Anhänge · „geöffnet am …" / „noch nicht geöffnet"
+```
+
+### Datenmodell (in Klartext)
+- **Gmail-Verbindung** (eine Zeile, geteiltes Team-Postfach): verbundene Adresse, Zugriffs-/Refresh-Token (**nur serverseitig**, verschlüsselt), Ablaufzeit. Grundlage fürs Senden.
+- **Gesendete E-Mails** (neue Tabelle): Verweis auf den Kunden, Empfänger (+ optional CC), Betreff, Text (HTML), Absender, Sendezeitpunkt, Gmail-Nachrichten-ID, Tracking-Kennung, „geöffnet am" (leer = noch nicht), Anhang-Infos.
+- **Anhänge**: Datei im **Supabase Storage** + Metadaten (Name, Größe) am E-Mail-Eintrag.
+- Speicherort: Supabase (PostgreSQL + Storage), geschützt per Row Level Security.
+
+### Wie das Senden funktioniert
+- Der Versand läuft über die **Gmail-API im Namen deines verbundenen Postfachs** (eine Server-Aktion baut die E-Mail inkl. Anhänge zusammen und sendet sie). Dadurch landet die Mail **automatisch in deinem Gmail „Gesendet"**.
+- Läuft der Zugriff ab, wird er automatisch über den Refresh-Token erneuert; klappt das nicht, erscheint „Gmail neu verbinden".
+
+### Öffnungs-Tracking
+- Beim Senden wird ein **unsichtbarer 1×1-Pixel** mit eindeutiger Kennung in die HTML-Mail eingebettet. Öffnet der Empfänger die Mail und lädt Bilder, ruft sein Programm den Pixel ab → eine kleine **öffentliche Route** hält „geöffnet am" fest.
+- **Vorbehalt:** funktioniert nur, wenn Bilder geladen werden (sonst „noch nicht geöffnet"); **DSGVO** beachten (siehe offene Fragen).
+
+### Tech-Entscheidungen (warum)
+- **Eigener Gmail-OAuth-Flow, getrennt vom Login:** Der Supabase-Google-Login liefert nur die Identität. Fürs serverseitige Senden brauchen wir eine **eigene Google-Zustimmung mit Sende-Berechtigung** und einen Refresh-Token, den wir sicher speichern.
+- **Token nur serverseitig** (verschlüsselt, Versand über Server-Aktion) — nie im Browser.
+- **Versand über Gmail-API** statt eigenem Mailserver: „offizielle Google-Anbindung" (PRD), erscheint im echten Postfach.
+- **Bewährte Google-Bibliothek** (`googleapis`) für Versand + Token-Erneuerung — weniger Eigenfehler.
+- **Anhänge im Supabase Storage**, Metadaten in der DB.
+- **Neue API-Routen** (Erstes Mal in der App): Gmail-Verbindungs-Rückkehr (OAuth-Callback) und die Tracking-Pixel-Route — beides reine Server-Endpunkte.
+
+### Einmalige Einrichtung durch den Nutzer (Voraussetzung fürs Backend)
+- In der **Google Cloud Console**: Gmail-API aktivieren, OAuth-Zustimmungsbildschirm anlegen, **Sende-Berechtigung (`gmail.send`)** hinzufügen, einen **OAuth-Client** erstellen (Client-ID + Secret), die **Rückkehr-Adresse** (Vercel-Domain) eintragen und dich als **Testnutzer** hinzufügen.
+- **Neue Umgebungs-Variablen** (in Vercel/`.env.local`): Gmail-OAuth-Client-ID + -Secret. (Der Agent kann `.env`-Dateien nicht schreiben — ich sage dir genau, was reinkommt.)
+
+### Abhängigkeiten (zu installieren)
+- `googleapis` (Gmail-Versand + Token-Erneuerung). Evtl. ein kleiner MIME-Helfer zum Zusammenbauen der Nachricht mit Anhängen.
 
 ## QA Test Results
 _To be added by /qa_

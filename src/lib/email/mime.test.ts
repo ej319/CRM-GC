@@ -46,6 +46,19 @@ describe("buildRawMessage", () => {
     expect(decode(raw)).toContain("Cc: chef@b.de");
   });
 
+  it("entfernt Zeilenumbrüche aus dem Betreff (keine Header-Injection)", () => {
+    const raw = buildRawMessage({
+      from: "a@b.de",
+      to: "c@d.de",
+      subject: "Hallo\r\nBcc: angreifer@evil.com",
+      html: "<p>x</p>",
+    });
+    const lines = decode(raw).split("\r\n");
+    // Genau eine Subject-Zeile, keine eingeschleuste Bcc-Header-Zeile.
+    expect(lines.filter((l) => l.startsWith("Subject:"))).toHaveLength(1);
+    expect(lines.some((l) => l.startsWith("Bcc:"))).toBe(false);
+  });
+
   it("baut multipart/mixed mit Anhang", () => {
     const raw = buildRawMessage({
       from: "a@b.de",

@@ -19,9 +19,11 @@ interface BuildOptions {
 
 /** RFC-2047-kodierung für Header mit Nicht-ASCII (z.B. Umlaute im Betreff). */
 function encodeHeader(value: string): string {
+  // CR/LF entfernen → verhindert Header-Injection über den Betreff (QA-Finding L1).
+  const clean = value.replace(/[\r\n]+/g, " ");
   // eslint-disable-next-line no-control-regex
-  if (/^[\x00-\x7F]*$/.test(value)) return value;
-  return `=?UTF-8?B?${Buffer.from(value, "utf8").toString("base64")}?=`;
+  if (/^[\x00-\x7F]*$/.test(clean)) return clean;
+  return `=?UTF-8?B?${Buffer.from(clean, "utf8").toString("base64")}?=`;
 }
 
 /** base64 in 76-Zeichen-Zeilen umbrechen (MIME-konform). */

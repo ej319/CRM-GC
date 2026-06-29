@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { connectFromCode } from "@/lib/email/gmail";
+import { safeNextPath } from "@/lib/email/url";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,8 +16,7 @@ export async function GET(req: NextRequest) {
   const oauthError = url.searchParams.get("error");
 
   const savedState = req.cookies.get("gmail_oauth_state")?.value;
-  const nextCookie = req.cookies.get("gmail_oauth_next")?.value || "/";
-  const next = nextCookie.startsWith("/") ? nextCookie : "/";
+  const next = safeNextPath(req.cookies.get("gmail_oauth_next")?.value);
 
   function back(flag: string) {
     const u = new URL(next, origin);

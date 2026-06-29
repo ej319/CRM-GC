@@ -21,15 +21,16 @@
 | PROJ-4 | Kunden-/Auftrags-Detailansicht mit komplettem Verlauf (inkl. Notizen) | P0 | PROJ-2 | Deployed | PROJ-4-detailansicht-verlauf.md | 2026-06-22 |
 | PROJ-5 | Aktivitätenplanung und Aktivitätenliste | P0 | PROJ-1, PROJ-2, PROJ-4 | Deployed | PROJ-5-aktivitaeten.md | 2026-06-22 |
 | PROJ-6 | Notizen am Kunden/Auftrag — geht in PROJ-4 auf | P0 | PROJ-4 | Merged → PROJ-4 | (siehe PROJ-4) | |
-| PROJ-7 | E-Mail-Versand aus der Kundenakte (Gmail) — v1: Senden, Postfach-Sync später | P0 | PROJ-1, PROJ-2, PROJ-4 | In Progress | PROJ-7-email-versand-gmail.md | 2026-06-23 |
+| PROJ-7 | E-Mail-Versand aus der Kundenakte (Gmail) — v1: Senden, Postfach-Sync später | P0 | PROJ-1, PROJ-2, PROJ-4 | In Review | PROJ-7-email-versand-gmail.md | 2026-06-23 |
 | PROJ-8 | Click-to-Call über Placetel | P0 | PROJ-2, PROJ-4 | Deployed | PROJ-8-click-to-call-placetel.md | 2026-06-23 |
 | PROJ-9 | E-Mail-Vorlagen | P1 | PROJ-7 | Roadmap | | |
 | PROJ-10 | Pipeline-Automatik-Regeln | P1 | PROJ-2, PROJ-5, PROJ-7 | Roadmap | | |
 | PROJ-11 | Erinnerungen/Benachrichtigungen für Aktivitäten | P2 | PROJ-5 | Roadmap | | |
 | PROJ-12 | Auswertungen/Dashboard | P2 | PROJ-2 | Roadmap | | |
 | PROJ-13 | Dateien/Angebote anhängen | P2 | PROJ-2 | Roadmap | | |
+| PROJ-14 | In-App-Hilfe & Feedback/Ticket-System (Nutzer/Mitarbeiter melden Fehler & Ideen; Claude triagiert als Support und setzt als Entwickler um) | P1 | PROJ-1 | Roadmap | | 2026-06-25 |
 
 ## Recommended Build Order
 PROJ-1 → PROJ-2 → PROJ-3 → PROJ-4 (inkl. Notizen/PROJ-6) → PROJ-5 → PROJ-8 → PROJ-7 → PROJ-9 → PROJ-10 → PROJ-11 → PROJ-12 → PROJ-13
 
-## Next Available ID: PROJ-14
+## Next Available ID: PROJ-15

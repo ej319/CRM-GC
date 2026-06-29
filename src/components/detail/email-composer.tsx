@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/detail/rich-text-editor";
 import { createClient } from "@/lib/supabase/client";
 
 export interface EmailAttachmentRef {
@@ -22,6 +22,7 @@ export interface EmailDraft {
   to: string;
   cc?: string;
   subject: string;
+  /** Nachrichtentext als HTML (formatiert). Wird serverseitig bereinigt. */
   body: string;
   attachments: EmailAttachmentRef[];
 }
@@ -167,12 +168,10 @@ export function EmailComposer({
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="email-body">Text</Label>
-        <Textarea
-          id="email-body"
+        <Label>Text</Label>
+        <RichTextEditor
           value={body}
-          onChange={(e) => setBody(e.target.value)}
-          className="min-h-40"
+          onChange={setBody}
           placeholder="Nachricht schreiben …"
         />
       </div>

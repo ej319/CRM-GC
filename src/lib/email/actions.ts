@@ -8,7 +8,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendMail, disconnect as gmailDisconnect, GmailReconnectError } from "@/lib/email/gmail";
 import type { RawAttachment } from "@/lib/email/mime";
-import { normalizeRecipients, textToHtml, type Email } from "@/lib/email/data";
+import { normalizeRecipients, wrapHtmlDocument, type Email } from "@/lib/email/data";
+import { sanitizeEmailHtml } from "@/lib/email/sanitize";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -62,12 +63,15 @@ export async function sendEmail(
     cc = normCc;
   }
 
-  const subject = input.subject.trim();
+  // CR/LF aus dem Betreff entfernen → keine Header-Injection (QA-Finding L1).
+  const subject = input.subject.replace(/[\r\n]+/g, " ").trim();
 
   // Tracking-Pixel (immer an – B2B-Entscheidung des Nutzers, DSGVO-Vorbehalt dokumentiert).
   const trackingId = randomUUID();
   const pixel = `<img src="${await baseUrl()}/api/email/track/${trackingId}" width="1" height="1" alt="" style="display:none">`;
-  const html = textToHtml(input.body).replace("</body>", `${pixel}</body>`);
+  // Der Editor liefert HTML → sicher bereinigen (XSS), dann ins Mail-Grundgerüst packen.
+  const safeBody = sanitizeEmailHtml(input.body);
+  const html = wrapHtmlDocument(safeBody).replace("</body>", `${pixel}</body>`);
 
   // Anhänge aus dem Storage laden (Service-Role, unabhängig von der Session).
   const rawAttachments: RawAttachment[] = [];

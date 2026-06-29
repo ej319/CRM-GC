@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 
 import { createClient } from "@/lib/supabase/server";
 import { buildAuthUrl, gmailConfigured } from "@/lib/email/gmail";
+import { safeNextPath } from "@/lib/email/url";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,8 +11,7 @@ export const dynamic = "force-dynamic";
 /** Startet den Gmail-Verbinden-Ablauf: leitet zur Google-Zustimmungsseite weiter. */
 export async function GET(req: NextRequest) {
   const origin = new URL(req.url).origin;
-  const nextParam = req.nextUrl.searchParams.get("next") || "/";
-  const next = nextParam.startsWith("/") ? nextParam : "/";
+  const next = safeNextPath(req.nextUrl.searchParams.get("next"));
 
   const supabase = await createClient();
   const {

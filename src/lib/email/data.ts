@@ -34,13 +34,18 @@ export function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Umschließt fertigen HTML-Inhalt mit dem Mail-Grundgerüst (Schrift/Farbe). */
+export function wrapHtmlDocument(inner: string): string {
+  return (
+    `<!DOCTYPE html><html><body style="font-family:Arial,Helvetica,sans-serif;` +
+    `font-size:14px;color:#1f2937;line-height:1.5">${inner}</body></html>`
+  );
+}
+
 /** Reinen Text in eine einfache HTML-Mail umwandeln (Zeilenumbrüche bleiben erhalten). */
 export function textToHtml(text: string): string {
   const body = escapeHtml(text).replace(/\r\n|\r|\n/g, "<br>\n");
-  return (
-    `<!DOCTYPE html><html><body style="font-family:Arial,Helvetica,sans-serif;` +
-    `font-size:14px;color:#1f2937;line-height:1.5">${body}</body></html>`
-  );
+  return wrapHtmlDocument(body);
 }
 
 /** HTML grob in lesbaren Text zurückwandeln (für die Verlauf-Vorschau). */

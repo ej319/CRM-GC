@@ -1,8 +1,10 @@
 # PROJ-7: E-Mail-Versand aus der Kundenakte (Gmail)
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-06-23
-**Last Updated:** 2026-06-23
+**Last Updated:** 2026-06-27
+
+> **Stand 2026-06-27:** Re-QA nach den Fixes durchlaufen (Ergebnisse unten). Formatierungs-Editor (M1) + Sicherheits-Härtungen (L1, L2) sind umgesetzt und auf Code-/Test-Ebene verifiziert: Vitest 59/59, E2E 32/32, tsc sauber, **READY**. Letzter offener Schritt vor `/deploy`: ein echter **formatierter** Live-Versand als Smoke-Test (fett/kursiv/Liste im Empfänger-Postfach prüfen) + die drei Umgebungs-Variablen + Produktions-Redirect-URI in Vercel/Google setzen.
 
 > **Umfang dieser Spec:** v1 = **Senden** aus der Kundenakte über Gmail. Das **Empfangen / Postfach-Sync** (eingehende E-Mails automatisch beim Kunden) ist eine **spätere Phase** der E-Mail-Funktion und hier bewusst Out of Scope.
 
@@ -202,8 +204,133 @@ Der Agent kann `.env`-Dateien nicht schreiben — diese drei Werte trägst du se
 
 **Redirect-URIs** in Google (beide eintragen): `http://localhost:3000/api/gmail/callback` (Test) und `https://<deine-vercel-domain>/api/gmail/callback` (Produktion).
 
+### Live-Einrichtung & erster Funktionstest (2026-06-25)
+Gmail-Versand erstmals **live verbunden und erfolgreich getestet** (lokal, `localhost:3000`) — inkl. **Datei-Anhang**. Senden, Verlauf-Eintrag und Versand über das echte Postfach funktionieren.
+
+**Google-Cloud-Einrichtung (durch den Nutzer, geführt):**
+- Bestehendes Projekt „CRM-GC" (Projektnr. 499707) genutzt; versehentliches Zweitprojekt (500409) verworfen.
+- Gmail-API aktiviert.
+- OAuth-Zustimmungsbildschirm war bereits vorhanden (vom Login). **Zielgruppe = „Intern"** → keine Testnutzer/Verifizierung nötig und **kein 7-Tage-Token-Ablauf**.
+- Scope `https://www.googleapis.com/auth/gmail.send` unter „Datenzugriff" ergänzt.
+- **Eigener, getrennter OAuth-Client (Typ „Webanwendung")** nur für den Versand angelegt (Login-Client unberührt); Redirect-URI `http://localhost:3000/api/gmail/callback`.
+- Schlüssel in `.env.local`: `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `SUPABASE_SERVICE_ROLE_KEY` (klassischer „legacy" `service_role`-Schlüssel, passend zur App-Konfiguration).
+
+**Noch offen für den Produktivbetrieb (online):** dieselben drei Variablen bei **Vercel** setzen **und** die **Produktions-Redirect-URI** (`https://<vercel-domain>/api/gmail/callback`) im selben OAuth-Client ergänzen. Anschließend `/qa` (formaler Durchlauf) und `/deploy`.
+
+### Frontend – Formatierung nachgerüstet (2026-06-26, behebt QA-Finding M1)
+Das E-Mail-Schreibfeld hat jetzt einen **Formatierungs-Editor** (fett, kursiv, Aufzählung, nummerierte Liste) statt des einfachen Textfelds.
+- **Neue Komponente** `src/components/detail/rich-text-editor.tsx` (`RichTextEditor`): schlank, **ohne externe Bibliothek** (bearbeitbares Feld + Toolbar aus shadcn-`Button`/`Separator`, lucide-Icons). Gibt formatierten Text als **HTML** über `onChange` aus; Toolbar nutzt `document.execCommand`. Platzhalter wird angezeigt, solange leer; `onMouseDown`-preventDefault hält die Textauswahl beim Klick auf die Toolbar.
+- **`email-composer.tsx`:** `Textarea` für den Text durch `RichTextEditor` ersetzt; `EmailDraft.body` ist nun **HTML** (Kommentar ergänzt). Reset nach dem Senden leert den Editor.
+- **Wichtig (Schnittstelle zum Backend):** `body` enthält ab jetzt **HTML**. Das Backend muss diesen HTML-Text **bereinigen (Sanitizing gegen XSS)** statt ihn wie bisher zu maskieren (`textToHtml`/`escapeHtml`). → wird im folgenden `/backend`-Schritt umgesetzt. **Bis dahin nicht deployen**, sonst werden HTML-Tags beim Empfänger als Text angezeigt.
+- Verifikation: `tsc --noEmit` sauber · `npm test` 50/50 grün. Visueller Test im Browser steht noch aus (nach dem Backend-Schritt, dann End-to-End).
+
+### Backend – sicheres HTML + zwei Härtungen (2026-06-26, behebt M1/L1/L2)
+- **M1 (HTML sicher verarbeiten):** Neue Bibliothek **`sanitize-html`** + neuer reiner Helfer `src/lib/email/sanitize.ts` (`sanitizeEmailHtml`): erlaubt nur einfache Formatier-Tags (`b/strong/i/em/u/s/p/br/div/span/ul/ol/li/h3/h4/blockquote/a`), entfernt `<script>`/Event-Handler/fremde Bilder, lässt nur `http/https/mailto`-Links zu und härtet Links (`rel=noopener noreferrer`, `target=_blank`). `src/lib/email/data.ts`: Grundgerüst in `wrapHtmlDocument(inner)` ausgelagert (`textToHtml` nutzt es weiter). `actions.ts` `sendEmail`: nutzt jetzt `wrapHtmlDocument(sanitizeEmailHtml(body))` statt `textToHtml` (Maskierung) → formatierter Text kommt sicher beim Empfänger an, in der DB (`body_html`) liegt bereinigtes HTML. Der Verlauf zeigt weiterhin Klartext (`stripHtml`) → unverändert XSS-sicher.
+- **L1 (Header-Injection über Betreff):** `mime.ts` `encodeHeader` entfernt CR/LF; zusätzlich räumt `actions.ts` den Betreff (`replace(/[\r\n]+/g," ").trim()`). Kein Einschleusen zusätzlicher Mail-Header mehr.
+- **L2 (Open Redirect):** Neuer reiner Helfer `src/lib/email/url.ts` (`safeNextPath`): lässt nur echte interne Pfade zu, blockt `//…` (protokoll-relativ) und `/\…`. Eingesetzt in `api/gmail/connect` und `api/gmail/callback` statt der bisherigen `startsWith("/")`-Prüfung.
+- **Sicherheitsbibliothek:** `sanitize-html@2.17.5` sauber installiert; die `npm audit`-Warnungen betreffen ausschließlich **vorbestehende** Pakete (`xlsx`, Next.js, Test-Tooling), nicht diese Änderung.
+- **Verifikation:** `tsc --noEmit` sauber · `npm test` **59/59 grün** (neu: `sanitize.test.ts` 5, `url.test.ts` 3, mime-Betreff-Test 1) · PROJ-7-E2E 3/3 grün. **Echter Versand mit Formatierung** muss noch im Browser end-to-end getestet werden (erneutes `/qa`).
+
 ## QA Test Results
-_To be added by /qa_
+
+### Re-QA 2026-06-27 (Verifikation der M1/L1/L2-Fixes)
+**Getestet:** 2026-06-27 · **Tester:** QA (Claude) · **Methoden:** Code-Audit der geänderten Dateien · Red-Team auf den neuen HTML-Sanitizer · Unit-Tests (Vitest) · E2E-Tests (Playwright) · TypeScript.
+
+**Anlass:** Nach der ersten QA wurden die drei offenen Punkte umgesetzt — **M1** (Formatierungs-Editor + sicheres HTML), **L1** (Header-Injection über Betreff), **L2** (Open Redirect). Dieser Durchlauf prüft genau diese Änderungen.
+
+**Ergebnis je Fix:**
+| Fix | Status | Beleg |
+|-----|--------|-------|
+| **M1** – Rich-Text + sicheres HTML | ✅ behoben (Code) | `RichTextEditor` liefert HTML → `sendEmail` bereinigt mit `sanitizeEmailHtml` (Allowlist) → `wrapHtmlDocument` + Tracking-Pixel. Verlauf zeigt weiter Klartext (`stripHtml`, React-escaped) → kein XSS. |
+| **L1** – Header-Injection | ✅ behoben | Betreff doppelt von CR/LF befreit (`actions.ts` **und** `mime.ts` `encodeHeader`); Empfänger über `normalizeRecipients` validiert (CR/LF scheitern an `\s`-Regel). |
+| **L2** – Open Redirect | ✅ behoben | `safeNextPath` in `connect` **und** `callback`; blockt `//…`, `/\…`, absolute & leere Ziele (Redirect immer relativ zur eigenen Origin). |
+
+**Red-Team auf den HTML-Sanitizer (`sanitize-html`, neue Sicherheits-Oberfläche):** Allowlist nur einfache Formatier-Tags; `<script>`/`<style>` inkl. Inhalt entfernt; keine Event-Handler (`on*`); `<img>` fremd entfernt (kein Daten-Abfluss); Schemata auf `http/https/mailto` begrenzt (→ `javascript:`/`data:` raus); Links gehärtet (`rel=noopener noreferrer`, `target=_blank`). Kein `style`-Attribut erlaubt. **Kein Bypass gefunden.** Zweite Schutzlinie: Verlauf rendert nie `dangerouslySetInnerHTML`.
+
+**Automatisierte Tests (dieser Lauf):**
+- **Vitest: 59/59 grün** (inkl. `sanitize.test.ts` 5 — Tags/Script/Event-Handler/`javascript:`/leer; `url.test.ts` 3 — interne Pfade/`//`/`\`/absolut; `mime`-Betreff-Test).
+- **Playwright E2E: 32/32 grün** (16 Tests × Desktop + Mobile; PROJ-7 davon 6: Tracking-Pixel öffentlich erreichbar, Kundenakte login-geschützt, Gmail-Verbinden login-geschützt). *Hinweis: Der Webserver-Start scheiterte zunächst an einem beschädigten `.next`-Cache (Windows) — nach Beiseiteschieben des Caches alle grün.*
+- **TypeScript:** `tsc --noEmit` sauber (Exit 0).
+
+**Offen / unverändert akzeptiert:** L3 (Anhang-Größe clientseitig — durch Gmails 25-MB-Grenze entschärft), L4 (keine Zod-Validierung — optional), L5 (Info, projektweit). Keine neuen Critical/High.
+
+**Noch manuell zu bestätigen (nicht automatisierbar):** Ein **echter formatierter Versand über die Live-Gmail-Verbindung** mit Kontrolle im Empfänger-Postfach (kommt **fett/kursiv/Liste** korrekt an?). Der Live-Versand war am 2026-06-25 bestätigt, aber **vor** der HTML-Umstellung — daher dieser eine Punkt vor `/deploy` erneut live prüfen.
+
+**Produktionsreife (Re-QA):** **READY** — keine Critical/High; alle drei gemeldeten Fixes auf Code-/Test-Ebene verifiziert. Empfehlung: den einen Live-Formatierungstest beim Deploy als Smoke-Test mitlaufen lassen.
+
+---
+
+### Erst-QA 2026-06-26
+**Getestet:** 2026-06-26 · **Tester:** QA (Claude) · **Build:** lokal `localhost:3000` (Gmail live verbunden)
+**Methoden:** Code-Audit · Datenbank-/RLS-Prüfung live in Supabase · HTTP-Tests (curl) · Unit-Tests (Vitest 50/50) · E2E-Tests (Playwright) · Nutzer-Live-Test (2026-06-25, vom Nutzer bestätigt)
+
+### Zusammenfassung
+- **Abnahme-Kriterien: 11 / 11 erfüllt** (per Code/HTTP/E2E verifiziert; 5 davon zusätzlich vom Nutzer live bestätigt).
+- **Sicherheit: solide** — Token-Speicherung abgeschottet, RLS überall mit Login-Pflicht, kein XSS, OAuth-CSRF abgesichert, Security-Header gesetzt.
+- **Gefundene Punkte:** 0 Critical · 0 High · 1 Medium · 4 Low (+1 projektweiter Info-Hinweis).
+- **Produktionsreif: JA** (keine Critical/High-Bugs). Empfehlung: die zwei Low-Härtungen (L1, L2) als 1-Zeilen-Fixes vor dem Deploy; M1 (Formatierung) ist eine Produktentscheidung.
+
+### Abnahme-Kriterien
+| # | Kriterium | Ergebnis | Beleg |
+|---|-----------|----------|-------|
+| 1 | Nicht verbunden → „Gmail verbinden" statt Schreibfenster | ✅ PASS | `EmailComposer` `!connected`-Zweig |
+| 2 | Nach Verbinden → schreiben & senden, Von = Postfach | ✅ PASS | Nutzer-Live-Test; `sendMail` nutzt `conn.email` |
+| 3 | Kundenadresse in „An" vorbelegt & änderbar | ✅ PASS | `useState(customerEmail ?? "")`, Feld editierbar |
+| 4 | Betreff + Text + Senden über Gmail | ✅ PASS¹ | Nutzer-Live-Test (¹Formatierung → M1) |
+| 5 | Anhänge → Empfänger erhält sie | ✅ PASS | Nutzer-Live-Test mit Anhang; `buildRawMessage` multipart |
+| 6 | Kein gültiger Empfänger → Hinweis, kein Versand | ✅ PASS | Button disabled bei leer; Server `normalizeRecipients` → Fehler-Toast |
+| 7 | Gesendete Mail im Verlauf (Empfänger/Betreff/Text/Zeit/Anhänge) | ✅ PASS | Nutzer-Live-Test; `getEmails` + `EmailItem` |
+| 8 | Öffnung → „geöffnet am …" | ✅ PASS² | Pixel ohne Login erreichbar (HTTP 200 GIF, E2E); Handler setzt `opened_at` (²nur wenn Empfänger Bilder lädt) |
+| 9 | Gesendete Mail in Gmail „Gesendet" | ✅ PASS | Nutzer-Live-Test; Gmail-API legt automatisch in „Gesendet" ab |
+| 10 | Senden schlägt fehl → Fehler + Entwurf bleibt; abgelaufen → neu verbinden | ✅ PASS | `onSend` gibt `false` → Felder bleiben; `GmailReconnectError`-Mapping |
+| 11 | Nicht angemeldet → Login | ✅ PASS | E2E: `/kunde/[id]` → 307 `/login`; Middleware |
+
+### Edge Cases (alle dokumentierten geprüft)
+| Fall | Ergebnis |
+|------|----------|
+| Gmail nicht verbunden / widerrufen → Aufforderung, Senden gesperrt | ✅ |
+| Kein E-Mail-Feld am Kunden → „An" leer; ungültige Adresse → Hinweis | ✅ |
+| Token abgelaufen → Aufforderung neu zu verbinden, Entwurf bleibt | ✅ |
+| Anhang über Limit → Hinweis (18 MB roh) | ✅ (Größe wird clientseitig gemeldet → L3) |
+| Öffnung ohne Bildladen → „noch nicht geöffnet" | ✅ (dokumentierter Vorbehalt) |
+| Mehrere Empfänger / CC → gespeichert; Tracking pro Mail | ✅ |
+| Netzwerkfehler beim Anhang-Upload → Hinweis, Versand erst nach Upload | ✅ |
+| Sehr langer/komplexer Text → korrekt gesendet & im Verlauf lesbar | ✅ |
+
+### Sicherheits-Audit (Red Team)
+**Geprüft & in Ordnung:**
+- **Token-Speicherung:** `gmail_accounts` hat RLS aktiv **ohne Policy** (Supabase-Advisor: nur INFO) → kein Client-Zugriff; nur der serverseitige Service-Role-Key liest/schreibt. `getStatus` gibt **nie** Tokens nach außen.
+- **RLS:** `emails`, `email_attachments` und der Storage-Bucket `email-attachments` — alle Lese-/Schreib-/Lösch-Policies verlangen `auth.uid()` (live über `pg_policies` geprüft). Nichts öffentlich.
+- **XSS:** Nutzertext wird per `escapeHtml` maskiert und im Verlauf als reiner Text (`stripHtml`) angezeigt — **kein** `dangerouslySetInnerHTML`. Test „kein XSS" vorhanden.
+- **OAuth-CSRF:** `state`-Cookie (httpOnly, sameSite=lax, 10 Min), Abgleich im Callback; `connect` und `callback` verlangen einen angemeldeten Nutzer.
+- **Security-Header:** `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `HSTS` (per curl bestätigt).
+- **Tracking-Route:** schreibt nur `opened_at` per zufälliger UUID, „best effort", Fehler blockieren den Pixel nie.
+
+### Gefundene Bugs / Risiken
+| ID | Schwere | Titel | Beschreibung & Empfehlung |
+|----|---------|-------|---------------------------|
+| **M1** | Medium | „Einfache Formatierung" (Rich-Text) nicht umgesetzt | Das Schreibfeld ist ein einfaches Textfeld. Die Mail geht als HTML mit Zeilenumbrüchen + Basis-Schrift, aber **ohne** Fett/Kursiv/Listen. Spec-Produktentscheidung wollte „Formatierter (HTML-)Text"; die Frontend-Vorschau-Notiz versprach Formatierung „mit dem Backend". **Workaround:** Klartext funktioniert voll. **Empfehlung:** bewusst auf später/PROJ-9 verschieben **oder** kleinen Rich-Text-Editor nachrüsten. Blockiert das Senden nicht. |
+| **L1** | Low | Header-Injection über Betreff | `encodeHeader` gibt einen reinen ASCII-Betreff unverändert weiter; ein Betreff mit Zeilenumbruch (CR/LF) könnte zusätzliche Mail-Header einschleusen. **Wirkung gering:** nur self (eigenes Postfach, eigene Mail), kein Fremdzugriff. **Fix (1 Zeile):** CR/LF im Betreff entfernen (`mime.ts`/`actions.ts`). |
+| **L2** | Low | Open Redirect über `next`-Parameter | `next.startsWith("/")` lässt protokoll-relative Ziele wie `//fremde-domain.de` durch → nach dem Verbinden Weiterleitung auf eine fremde Seite möglich (Phishing). **Fix:** zusätzlich `//` ablehnen (`/api/gmail/connect` + `/api/gmail/callback`). |
+| **L3** | Low | Anhang-Größenprüfung clientseitig | Das 18-MB-Limit prüft die vom Browser **gemeldete** Größe (umgehbar). Gmail erzwingt ohnehin 25 MB. **Optional:** echte Blob-Größe serverseitig prüfen. |
+| **L4** | Low | Keine Zod-Validierung (Projekt-Konvention) | `sendEmail` validiert manuell statt mit Zod (Regel `backend.md` nennt Zod). Funktional korrekt. **Optional** angleichen. |
+| **L5** | Info | „Leaked Password Protection" aus | Projektweiter Supabase-Auth-Hinweis (nicht PROJ-7); Login läuft ohnehin über Google-OAuth. Kann in Supabase optional aktiviert werden. |
+
+### Automatisierte Tests
+- **Unit (Vitest):** 50/50 grün (inkl. `data.test.ts`, `mime.test.ts` — Validierung, XSS-Maskierung, MIME-Bau, Anhänge).
+- **E2E (Playwright):** neue Datei `tests/PROJ-7-email-versand-gmail.spec.ts`, 3/3 grün:
+  - Tracking-Pixel ist ohne Login öffentlich erreichbar und liefert ein GIF (Regressionsschutz fürs Öffnungs-Tracking).
+  - Nicht angemeldet → Kundenakte leitet zu `/login` um (AC 11).
+  - Gmail-Verbinden-Start ist login-geschützt.
+- **TypeScript:** `tsc --noEmit` sauber.
+- **Hinweis:** Der echte Versand inkl. OAuth-Zustimmung lässt sich nicht automatisieren (echter Google-Login) — manuell live verifiziert (2026-06-25).
+
+### Regression
+- **PROJ-4 (Verlauf):** `Verlauf` rendert weiterhin Notizen + Aktivitäten und zusätzlich E-Mails (Reiter „Alle" und „E-Mails"); keine Regression. Notizen/Aktivitäten-Pfad unverändert.
+- Keine Änderungen an bestehenden RLS-Policies anderer Tabellen.
+
+### Produktionsreife-Entscheidung
+**READY** — keine Critical/High-Bugs. Empfohlene Reihenfolge vor `/deploy`: **L1 + L2** (schnelle Sicherheits-Härtung, je 1 Zeile) fixen, **M1** als Produktentscheidung klären (jetzt nachrüsten oder bewusst vertagen). L3–L5 sind optional.
 
 ## Deployment
 _To be added by /deploy_

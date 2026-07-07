@@ -1,11 +1,22 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  type ReactNode,
+} from "react";
 import { Bold, Italic, List, ListOrdered } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+
+/** Von außen aufrufbare Methoden des Editors (z. B. Platzhalter einfügen). */
+export interface RichTextEditorHandle {
+  insertText: (text: string) => void;
+}
 
 interface RichTextEditorProps {
   /** Aktueller Inhalt als HTML. */
@@ -14,6 +25,10 @@ interface RichTextEditorProps {
   onChange: (html: string) => void;
   placeholder?: string;
   className?: string;
+  /** Zusätzliche Knöpfe rechts in der Werkzeugleiste (z. B. „Platzhalter"). */
+  toolbarExtra?: ReactNode;
+  /** Wird gemeldet, wenn der Textbereich den Fokus erhält. */
+  onFocus?: () => void;
 }
 
 /** Prüft, ob der Editor (HTML) inhaltlich leer ist – für die Platzhalter-Anzeige. */
@@ -31,79 +46,97 @@ function isEmptyHtml(html: string): boolean {
  * Gibt formatierten Text als HTML aus – die Bereinigung gegen Schadcode (XSS)
  * passiert serverseitig im Versand (siehe /lib/email).
  */
-export function RichTextEditor({
-  value,
-  onChange,
-  placeholder,
-  className,
-}: RichTextEditorProps) {
-  const ref = useRef<HTMLDivElement>(null);
+export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
+  function RichTextEditor(
+    { value, onChange, placeholder, className, toolbarExtra, onFocus },
+    handleRef,
+  ) {
+    const ref = useRef<HTMLDivElement>(null);
 
-  // Externe Wertänderungen (z. B. Zurücksetzen nach dem Senden) übernehmen,
-  // ohne beim Tippen den Cursor zu verschieben: Beim Tippen ist value === innerHTML,
-  // daher greift das nur bei echten Änderungen von außen.
-  useEffect(() => {
-    const el = ref.current;
-    if (el && value !== el.innerHTML) {
-      el.innerHTML = value;
+    // Externe Wertänderungen (z. B. Zurücksetzen nach dem Senden) übernehmen,
+    // ohne beim Tippen den Cursor zu verschieben: Beim Tippen ist value === innerHTML,
+    // daher greift das nur bei echten Änderungen von außen.
+    useEffect(() => {
+      const el = ref.current;
+      if (el && value !== el.innerHTML) {
+        el.innerHTML = value;
+      }
+    }, [value]);
+
+    function exec(command: string) {
+      document.execCommand(command, false);
+      const el = ref.current;
+      if (el) {
+        el.focus();
+        onChange(el.innerHTML);
+      }
     }
-  }, [value]);
 
-  function exec(command: string) {
-    document.execCommand(command, false);
-    const el = ref.current;
-    if (el) {
-      el.focus();
-      onChange(el.innerHTML);
+    function handleInput() {
+      const el = ref.current;
+      if (el) onChange(el.innerHTML);
     }
-  }
 
-  function handleInput() {
-    const el = ref.current;
-    if (el) onChange(el.innerHTML);
-  }
+    // Platzhalter-Text an der aktuellen Cursor-Position einfügen.
+    useImperativeHandle(handleRef, () => ({
+      insertText(text: string) {
+        const el = ref.current;
+        if (!el) return;
+        el.focus();
+        document.execCommand("insertText", false, text);
+        onChange(el.innerHTML);
+      },
+    }));
 
-  return (
-    <div className={cn("rounded-md border border-input bg-background", className)}>
-      <div className="flex items-center gap-0.5 border-b border-input p-1">
-        <ToolbarButton label="Fett" onClick={() => exec("bold")}>
-          <Bold className="h-4 w-4" />
-        </ToolbarButton>
-        <ToolbarButton label="Kursiv" onClick={() => exec("italic")}>
-          <Italic className="h-4 w-4" />
-        </ToolbarButton>
-        <Separator orientation="vertical" className="mx-1 h-5" />
-        <ToolbarButton label="Aufzählung" onClick={() => exec("insertUnorderedList")}>
-          <List className="h-4 w-4" />
-        </ToolbarButton>
-        <ToolbarButton
-          label="Nummerierte Liste"
-          onClick={() => exec("insertOrderedList")}
-        >
-          <ListOrdered className="h-4 w-4" />
-        </ToolbarButton>
+    return (
+      <div className={cn("rounded-md border border-input bg-background", className)}>
+        <div className="flex items-center gap-0.5 border-b border-input p-1">
+          <ToolbarButton label="Fett" onClick={() => exec("bold")}>
+            <Bold className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton label="Kursiv" onClick={() => exec("italic")}>
+            <Italic className="h-4 w-4" />
+          </ToolbarButton>
+          <Separator orientation="vertical" className="mx-1 h-5" />
+          <ToolbarButton label="Aufzählung" onClick={() => exec("insertUnorderedList")}>
+            <List className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            label="Nummerierte Liste"
+            onClick={() => exec("insertOrderedList")}
+          >
+            <ListOrdered className="h-4 w-4" />
+          </ToolbarButton>
+          {toolbarExtra ? (
+            <>
+              <Separator orientation="vertical" className="mx-1 h-5" />
+              {toolbarExtra}
+            </>
+          ) : null}
+        </div>
+
+        <div className="relative">
+          <div
+            ref={ref}
+            contentEditable
+            suppressContentEditableWarning
+            role="textbox"
+            aria-multiline="true"
+            aria-label="Nachrichtentext"
+            onInput={handleInput}
+            onFocus={onFocus}
+            className="min-h-40 w-full px-3 py-2 text-sm focus-visible:outline-none [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
+          />
+          {placeholder && isEmptyHtml(value) ? (
+            <p className="pointer-events-none absolute left-3 top-2 text-sm text-muted-foreground">
+              {placeholder}
+            </p>
+          ) : null}
+        </div>
       </div>
-
-      <div className="relative">
-        <div
-          ref={ref}
-          contentEditable
-          suppressContentEditableWarning
-          role="textbox"
-          aria-multiline="true"
-          aria-label="Nachrichtentext"
-          onInput={handleInput}
-          className="min-h-40 w-full px-3 py-2 text-sm focus-visible:outline-none [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
-        />
-        {placeholder && isEmptyHtml(value) ? (
-          <p className="pointer-events-none absolute left-3 top-2 text-sm text-muted-foreground">
-            {placeholder}
-          </p>
-        ) : null}
-      </div>
-    </div>
-  );
-}
+    );
+  },
+);
 
 function ToolbarButton({
   label,

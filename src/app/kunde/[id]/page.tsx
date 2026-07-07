@@ -5,6 +5,7 @@ import { getNotes } from "@/lib/notes/queries";
 import { getCustomerActivities } from "@/lib/activities/queries";
 import { getEmails } from "@/lib/email/queries";
 import { getStatus } from "@/lib/email/gmail";
+import { getTemplates } from "@/lib/templates/queries";
 
 export default async function KundePage({
   params,
@@ -17,6 +18,7 @@ export default async function KundePage({
   const activities = customer ? await getCustomerActivities(id) : [];
   const emails = customer ? await getEmails(id) : [];
   const gmail = await getStatus();
+  const templates = customer ? await getTemplates() : [];
   return (
     <AppShell>
       <CustomerDetail
@@ -26,6 +28,7 @@ export default async function KundePage({
         initialEmails={emails}
         gmailConnected={gmail.connected}
         gmailEmail={gmail.email}
+        templates={templates}
       />
     </AppShell>
   );

@@ -46,7 +46,7 @@ next-env.d.ts
 desktop.ini
 
 # beschaedigte Next-Dev-Zwischenspeicher (temporaer)
-.next.broken.*
+.next.broken*
 
 # lokale Datensicherungen (koennen Kundendaten enthalten)
 /docs/backup/

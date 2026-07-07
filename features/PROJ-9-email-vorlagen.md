@@ -1,8 +1,10 @@
 # PROJ-9: E-Mail-Vorlagen
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-07-07
 **Last Updated:** 2026-07-07
+
+> **Stand 2026-07-07:** Frontend + Backend gebaut und lokal verifiziert (tsc sauber · Vitest **69/69** grün, davon 10 neue Platzhalter-Tests · `next build` inkl. neuer Route `/vorlagen` erfolgreich). **Der Code ist „inert", solange die Datenbank-Migration nicht angewandt ist** — die zwei Tabellen + der Storage-Bucket fehlen dann live. Migration liegt startklar unter `supabase/migrations/proj9_email_vorlagen.sql`; das Anwenden auf die Live-DB braucht eine ausdrückliche Nutzer-Freigabe (wie bei PROJ-7). Danach: `/qa` und `/deploy`.
 
 > **Kurzfassung:** Wiederkehrende E-Mails (Erstansprache, Angebots-Nachfass, Terminbestätigung …) werden einmal als Vorlage angelegt und dann mit einem Klick in das E-Mail-Schreibfenster der Kundenakte eingefügt — inklusive automatisch ausgefüllter Kundendaten (Platzhalter), optionalem Betreff und fest hinterlegten Anhängen.
 
@@ -117,6 +119,33 @@ Beim Einfügen in der Kundenakte werden Platzhalter mit den Daten des geöffnete
 | Vorlagen-Text wird beim Speichern UND beim Senden bereinigt (`sanitizeEmailHtml`) | Doppelter Schutz gegen schädliches HTML; die Garantie bleibt der bestehende Versand-Filter aus PROJ-7. | 2026-07-07 |
 | Menüpunkt „Vorlagen" ins bestehende Nutzer-Menü (Dropdown), keine neue Leiste | Navigation läuft im Projekt komplett über das Nutzer-Menü (Aktivitäten, Import); konsistent und minimaler Eingriff. | 2026-07-07 |
 | Keine neue Bibliothek nötig | Alle Bausteine vorhanden (Formatierungs-Editor, Auswahl-/Dialog-/Tabellen-Komponenten, HTML-Bereinigung, Zod). | 2026-07-07 |
+
+---
+
+## Implementation Notes
+
+### Frontend + Backend (2026-07-07)
+In einem Zug gebaut (Datenschicht zuerst, damit alles echt ist), lokal vollständig verifiziert.
+
+**Datenschicht (`src/lib/templates/`):**
+- `data.ts` — Typen (`EmailTemplate`, `TemplateAttachment`, `TemplateCustomerFields`), Platzhalter-Liste (`TEMPLATE_PLACEHOLDERS`) und der **reine Helfer `fillPlaceholders`** (Anrede-Automatik, Ersatztexte, HTML-sicheres Einsetzen im Text, Leerzeichen-Bereinigung im Betreff, unbekannte Tokens bleiben stehen). Läuft im Browser → Einfügen ist sofort.
+- `data.test.ts` — 10 Unit-Tests (Anrede mit/ohne Ansprechpartner, Ersatztext, leer, unbekannter Token, Betreff-Bereinigung, HTML-Escaping, Mehrfach-Vorkommen).
+- `schema.ts` — Zod (`templateInputSchema`, `templateAttachmentRefSchema`).
+- `queries.ts` — `getTemplates` (team-weit, alphabetisch, mit Anhängen) + `rowToTemplate`.
+- `actions.ts` — Server-Aktionen `createTemplate`, `updateTemplate` (inkl. Anhang-Abgleich: entfernte Dateien werden aus dem Bucket gelöscht), `deleteTemplate` (löscht auch die Anhang-Dateien) und `instantiateTemplateAttachments` (kopiert Vorlagen-Anhänge beim Einfügen als eigene Kopien in den `email-attachments`-Bucket). Text wird mit `sanitizeEmailHtml` bereinigt.
+
+**Frontend:**
+- `src/app/vorlagen/page.tsx` — Server-Seite (`getTemplates` → `AppShell` → `TemplatesPage`).
+- `src/components/templates/templates-page.tsx` — Liste (shadcn-Tabelle), Leer-Zustand, Löschen-Bestätigung, hostet den Editor-Dialog; optimistische Aktualisierung der Liste.
+- `src/components/templates/template-editor-dialog.tsx` — Anlegen/Bearbeiten: Name (Pflicht), Betreff, „Platzhalter einfügen" (fügt in das zuletzt fokussierte Feld ein — Betreff an Cursor-Position oder in den Text-Editor), Formatierungs-Editor, Ersatztext-Felder (nur für tatsächlich genutzte Platzhalter), Anhänge (Upload in den `template-attachments`-Bucket, 18-MB-Grenze).
+- `src/components/detail/rich-text-editor.tsx` — **rückwärtskompatibel erweitert**: `forwardRef` + `insertText`-Methode (für Platzhalter), optionaler `toolbarExtra`, `onFocus`. Bestehendes Schreibfenster unverändert nutzbar.
+- `src/components/detail/email-composer.tsx` — neue **Vorlagen-Auswahl** (Dropdown, nur wenn Vorlagen existieren): füllt Platzhalter sofort, fragt bei vorhandenem Betreff/Text „Ersetzen?", übernimmt Vorlagen-Anhänge als Kopien. Betreff wird nur ersetzt, wenn die Vorlage einen hat.
+- Kundenfelder + Vorlagen werden durchgereicht: `kunde/[id]/page.tsx` → `customer-detail.tsx` → `detail-composer.tsx` → `email-composer.tsx`.
+- Menüpunkt „E-Mail-Vorlagen" im Nutzer-Menü (`user-menu.tsx`).
+
+**Datenbank:** Migration `supabase/migrations/proj9_email_vorlagen.sql` (zwei Tabellen, Team-RLS wie `notes`, privater Bucket `template-attachments` + Policies). **Noch nicht auf die Live-DB angewandt** — braucht Nutzer-Freigabe.
+
+**Verifikation:** `tsc --noEmit` sauber · Vitest **69/69** grün · `next build` erfolgreich (Route `/vorlagen` erzeugt). Der echte End-to-End-Test (Vorlage anlegen, einfügen, senden) folgt in `/qa`, sobald die Migration live ist.
 
 ---
 <!-- Sections below are added by subsequent skills -->

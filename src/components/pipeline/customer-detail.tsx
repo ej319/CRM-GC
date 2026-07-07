@@ -38,6 +38,7 @@ import type { Email } from "@/lib/email/data";
 import type { EmailDraft } from "@/components/detail/email-composer";
 import type { Customer } from "@/lib/pipeline/data";
 import type { Note } from "@/lib/notes/data";
+import type { EmailTemplate, TemplateCustomerFields } from "@/lib/templates/data";
 
 function plusDays(n: number): string {
   const d = new Date();
@@ -55,6 +56,7 @@ export function CustomerDetail({
   initialEmails,
   gmailConnected,
   gmailEmail,
+  templates,
 }: {
   customer: Customer | null;
   initialNotes: Note[];
@@ -62,6 +64,7 @@ export function CustomerDetail({
   initialEmails: Email[];
   gmailConnected: boolean;
   gmailEmail?: string;
+  templates: EmailTemplate[];
 }) {
   if (!customer) {
     return (
@@ -83,6 +86,7 @@ export function CustomerDetail({
       initialEmails={initialEmails}
       gmailConnected={gmailConnected}
       gmailEmail={gmailEmail}
+      templates={templates}
     />
   );
 }
@@ -94,6 +98,7 @@ function CustomerDetailView({
   initialEmails,
   gmailConnected,
   gmailEmail,
+  templates,
 }: {
   customer: Customer;
   initialNotes: Note[];
@@ -101,6 +106,7 @@ function CustomerDetailView({
   initialEmails: Email[];
   gmailConnected: boolean;
   gmailEmail?: string;
+  templates: EmailTemplate[];
 }) {
   const [deleting, setDeleting] = useState(false);
   const [notes, setNotes] = useState<Note[]>(initialNotes);
@@ -201,6 +207,15 @@ function CustomerDetailView({
 
   const focus = focusActivity(activities);
 
+  const customerFields: TemplateCustomerFields = {
+    name: customer.name,
+    contactName: customer.contactName,
+    address: customer.address,
+    plz: customer.plz,
+    city: customer.city,
+    category: customer.category,
+  };
+
   return (
     <div className="mx-auto max-w-6xl">
       <div className="mb-4 flex items-center justify-between">
@@ -247,6 +262,8 @@ function CustomerDetailView({
             gmailConnected={gmailConnected}
             gmailEmail={gmailEmail}
             onSendEmail={handleSendEmail}
+            templates={templates}
+            customerFields={customerFields}
           />
 
           <Card className={focus ? undefined : "border-dashed"}>

@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { todayInBerlin } from "@/lib/activities/data";
 import { ActivityForm, type ActivityFormValues } from "./activity-form";
 import { EmailComposer, type EmailDraft } from "./email-composer";
+import type { EmailTemplate, TemplateCustomerFields } from "@/lib/templates/data";
 
 interface DetailComposerProps {
   onAddNote: (body: string) => Promise<boolean>;
@@ -19,6 +20,8 @@ interface DetailComposerProps {
   gmailConnected: boolean;
   gmailEmail?: string;
   onSendEmail: (draft: EmailDraft) => Promise<boolean>;
+  templates: EmailTemplate[];
+  customerFields: TemplateCustomerFields;
 }
 
 function ComingSoon({ label }: { label: string }) {
@@ -38,6 +41,8 @@ export function DetailComposer({
   gmailConnected,
   gmailEmail,
   onSendEmail,
+  templates,
+  customerFields,
 }: DetailComposerProps) {
   const [body, setBody] = useState("");
   const [saving, setSaving] = useState(false);
@@ -99,6 +104,8 @@ export function DetailComposer({
               connected={gmailConnected}
               senderEmail={gmailEmail}
               onSend={onSendEmail}
+              templates={templates}
+              customerFields={customerFields}
             />
           </TabsContent>
           <TabsContent value="file">

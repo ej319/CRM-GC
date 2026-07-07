@@ -1,15 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import { Paperclip, X, Loader2, Mail } from "lucide-react";
+import { Paperclip, X, Loader2, Mail, FileText, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/detail/rich-text-editor";
 import { createClient } from "@/lib/supabase/client";
+import {
+  fillPlaceholders,
+  type EmailTemplate,
+  type TemplateCustomerFields,
+} from "@/lib/templates/data";
+import { instantiateTemplateAttachments } from "@/lib/templates/actions";
 
 export interface EmailAttachmentRef {
   path: string;
@@ -34,6 +56,19 @@ interface EmailComposerProps {
   senderEmail?: string;
   /** Sendet den Entwurf. Gibt true bei Erfolg zurück (dann werden die Felder geleert). */
   onSend: (draft: EmailDraft) => Promise<boolean>;
+  templates: EmailTemplate[];
+  customerFields: TemplateCustomerFields;
+}
+
+/** Prüft, ob der HTML-Text inhaltlich leer ist. */
+function isEmptyHtml(html: string): boolean {
+  return (
+    html
+      .replace(/<br\s*\/?>/gi, "")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, "")
+      .trim().length === 0
+  );
 }
 
 /** E-Mail-Schreibfenster in der Kundenakte (Empfänger vorbelegt, Versand über Gmail). */
@@ -43,6 +78,8 @@ export function EmailComposer({
   connected,
   senderEmail,
   onSend,
+  templates,
+  customerFields,
 }: EmailComposerProps) {
   const [to, setTo] = useState(customerEmail ?? "");
   const [cc, setCc] = useState("");
@@ -52,6 +89,9 @@ export function EmailComposer({
   const [attachments, setAttachments] = useState<EmailAttachmentRef[]>([]);
   const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
+  // Vorlage, für die noch die „Ersetzen?"-Rückfrage offen ist.
+  const [pendingTemplate, setPendingTemplate] = useState<EmailTemplate | null>(null);
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
 
   // Noch kein Gmail verbunden → Aufforderung statt Schreibfenster.
   if (!connected) {
@@ -95,6 +135,44 @@ export function EmailComposer({
     setUploading(false);
   }
 
+  // Vorlage gewählt: bei bereits vorhandenem Betreff/Text erst nachfragen.
+  function chooseTemplate(tpl: EmailTemplate) {
+    const hasContent = subject.trim().length > 0 || !isEmptyHtml(body);
+    if (hasContent) {
+      setPendingTemplate(tpl);
+    } else {
+      void applyTemplate(tpl);
+    }
+  }
+
+  async function applyTemplate(tpl: EmailTemplate) {
+    // Betreff nur ersetzen, wenn die Vorlage einen hat (sonst vorhandenen behalten).
+    if (tpl.subject) {
+      setSubject(
+        fillPlaceholders(tpl.subject, customerFields, tpl.placeholderDefaults, {
+          html: false,
+        }),
+      );
+    }
+    setBody(
+      fillPlaceholders(tpl.bodyHtml, customerFields, tpl.placeholderDefaults, {
+        html: true,
+      }),
+    );
+
+    // Anhänge der Vorlage als eigene Kopien übernehmen (unabhängig von der Vorlage).
+    if (tpl.attachments.length > 0) {
+      setApplyingTemplate(true);
+      const res = await instantiateTemplateAttachments(tpl.id);
+      setApplyingTemplate(false);
+      if (!res.ok) {
+        toast.error(res.error);
+      } else if (res.data.length > 0) {
+        setAttachments((prev) => [...prev, ...res.data]);
+      }
+    }
+  }
+
   async function handleSend() {
     if (!to.trim()) return;
     setSending(true);
@@ -117,21 +195,46 @@ export function EmailComposer({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div className="space-y-0.5">
           <Label className="text-xs text-muted-foreground">Von</Label>
           <p className="text-sm">{senderEmail ?? "dein verbundenes Gmail-Postfach"}</p>
         </div>
-        {!showCc ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowCc(true)}
-          >
-            + CC
-          </Button>
-        ) : null}
+        <div className="flex items-center gap-1">
+          {templates.length > 0 ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" size="sm" disabled={applyingTemplate}>
+                  {applyingTemplate ? (
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileText className="mr-1.5 h-4 w-4" />
+                  )}
+                  Vorlage
+                  <ChevronDown className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="max-h-72 overflow-y-auto">
+                {templates.map((tpl) => (
+                  <DropdownMenuItem key={tpl.id} onSelect={() => chooseTemplate(tpl)}>
+                    <FileText className="mr-2 h-4 w-4 text-muted-foreground" />
+                    {tpl.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+          {!showCc ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowCc(true)}
+            >
+              + CC
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       <div className="space-y-1.5">
@@ -221,6 +324,33 @@ export function EmailComposer({
           {sending ? "Senden …" : "Senden"}
         </Button>
       </div>
+
+      <AlertDialog
+        open={!!pendingTemplate}
+        onOpenChange={(o) => !o && setPendingTemplate(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Vorhandenen Text ersetzen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Im Schreibfenster steht bereits etwas. Die Vorlage „{pendingTemplate?.name}"
+              ersetzt den aktuellen Text{pendingTemplate?.subject ? " und Betreff" : ""}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const tpl = pendingTemplate;
+                setPendingTemplate(null);
+                if (tpl) void applyTemplate(tpl);
+              }}
+            >
+              Ersetzen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

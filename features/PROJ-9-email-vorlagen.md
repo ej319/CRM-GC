@@ -1,10 +1,10 @@
 # PROJ-9: E-Mail-Vorlagen
 
-## Status: In Progress
+## Status: Deployed
 **Created:** 2026-07-07
 **Last Updated:** 2026-07-07
 
-> **Stand 2026-07-07:** Frontend + Backend gebaut und lokal verifiziert (tsc sauber · Vitest **69/69** grün, davon 10 neue Platzhalter-Tests · `next build` inkl. neuer Route `/vorlagen` erfolgreich). **Der Code ist „inert", solange die Datenbank-Migration nicht angewandt ist** — die zwei Tabellen + der Storage-Bucket fehlen dann live. Migration liegt startklar unter `supabase/migrations/proj9_email_vorlagen.sql`; das Anwenden auf die Live-DB braucht eine ausdrückliche Nutzer-Freigabe (wie bei PROJ-7). Danach: `/qa` und `/deploy`.
+> **Stand 2026-07-07:** **Live auf https://crm-gc.vercel.app.** Datenbank-Migration angewandt (zwei Tabellen, 7 RLS-Policies, privater Bucket `template-attachments` + 3 Storage-Policies — alles per SQL verifiziert; Cascade-Löschen getestet; Sicherheits-Advisor ohne neue Warnung). Code verifiziert: tsc sauber · Vitest **69/69** · `next build`. Live-Routen geprüft (Vorlagen-Seite login-geschützt, keine Regression). **Offen: ein manueller End-to-End-Smoke-Test durch den Nutzer** (Vorlage anlegen → in Mail einfügen → Platzhalter/Anhang prüfen).
 
 > **Kurzfassung:** Wiederkehrende E-Mails (Erstansprache, Angebots-Nachfass, Terminbestätigung …) werden einmal als Vorlage angelegt und dann mit einem Klick in das E-Mail-Schreibfenster der Kundenakte eingefügt — inklusive automatisch ausgefüllter Kundendaten (Platzhalter), optionalem Betreff und fest hinterlegten Anhängen.
 
@@ -223,7 +223,13 @@ E-Mail-Schreibfenster (Kundenakte → Reiter „E-Mail", bestehende Komponente)
 **Keine.** Alles Nötige ist bereits im Projekt (Formatierungs-Editor, shadcn-Bausteine, HTML-Bereinigung `sanitize-html`, Zod).
 
 ## QA Test Results
-_To be added by /qa_
+_Formaler /qa-Durchlauf ausstehend. Bisher verifiziert: Unit-Tests (Vitest 69/69, davon 10 für die Platzhalter-Logik), tsc sauber, `next build` erfolgreich, DB-Funktionstest per SQL (Anlegen, jsonb-Ersatztexte, Cascade-Löschen von Anhängen), Sicherheits-Advisor ohne neue Warnung, Live-Routen-Checks (Login-Schutz, keine Regression). Ausstehend: authentifizierter End-to-End-Test (Vorlage anlegen → einfügen → senden)._
 
 ## Deployment
-_To be added by /deploy_
+
+### Deploy 2026-07-07
+- **Live:** https://crm-gc.vercel.app — Vercel-Projekt `ewgeni-s-projects/crm-gc`
+- **Datenbank:** Migrationen `proj9_email_vorlagen` + `proj9_template_attachments_bucket` auf die Live-DB angewandt (nach ausdrücklicher Nutzer-Freigabe). Verifiziert: 2 Tabellen, 7 Tabellen-Policies, Bucket `template-attachments` (privat), 3 Storage-Policies. Keine neue Advisor-Warnung.
+- **Keine neuen Umgebungs-Variablen** nötig (nutzt die bestehende Supabase-Anbindung).
+- **Post-Deploy-Checks (curl):** `/vorlagen` → 307 `/login` (login-geschützt); `/login` 200; Kundenakte weiter geschützt; Tracking-Pixel weiter öffentlich (`200 image/gif`) — keine Regression.
+- **Offen:** manueller Smoke-Test durch den Nutzer (Vorlage anlegen, in einer echten Mail einfügen, Platzhalter + Anhang kontrollieren).

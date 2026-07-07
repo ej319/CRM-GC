@@ -23,7 +23,7 @@
 | PROJ-6 | Notizen am Kunden/Auftrag — geht in PROJ-4 auf | P0 | PROJ-4 | Merged → PROJ-4 | (siehe PROJ-4) | |
 | PROJ-7 | E-Mail-Versand aus der Kundenakte (Gmail) — v1: Senden, Postfach-Sync später | P0 | PROJ-1, PROJ-2, PROJ-4 | Deployed | PROJ-7-email-versand-gmail.md | 2026-06-23 |
 | PROJ-8 | Click-to-Call über Placetel | P0 | PROJ-2, PROJ-4 | Deployed | PROJ-8-click-to-call-placetel.md | 2026-06-23 |
-| PROJ-9 | E-Mail-Vorlagen | P1 | PROJ-7 | In Progress | PROJ-9-email-vorlagen.md | 2026-07-07 |
+| PROJ-9 | E-Mail-Vorlagen | P1 | PROJ-7 | Deployed | PROJ-9-email-vorlagen.md | 2026-07-07 |
 | PROJ-10 | Pipeline-Automatik-Regeln | P1 | PROJ-2, PROJ-5, PROJ-7 | Roadmap | | |
 | PROJ-11 | Erinnerungen/Benachrichtigungen für Aktivitäten | P2 | PROJ-5 | Roadmap | | |
 | PROJ-12 | Auswertungen/Dashboard | P2 | PROJ-2 | Roadmap | | |

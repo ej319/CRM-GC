@@ -36,7 +36,11 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isPublic =
-    path === "/login" || path.startsWith("/auth");
+    path === "/login" ||
+    path.startsWith("/auth") ||
+    // Öffnungs-Tracking: wird vom E-Mail-Programm des Empfängers (ohne Login)
+    // abgerufen; liefert nur ein 1×1-GIF und setzt opened_at.
+    path.startsWith("/api/email/track/");
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

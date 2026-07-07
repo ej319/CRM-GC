@@ -1,10 +1,10 @@
 # PROJ-7: E-Mail-Versand aus der Kundenakte (Gmail)
 
-## Status: In Review
+## Status: Deployed
 **Created:** 2026-06-23
-**Last Updated:** 2026-06-27
+**Last Updated:** 2026-07-07
 
-> **Stand 2026-06-27:** Re-QA nach den Fixes durchlaufen (Ergebnisse unten). Formatierungs-Editor (M1) + Sicherheits-Härtungen (L1, L2) sind umgesetzt und auf Code-/Test-Ebene verifiziert: Vitest 59/59, E2E 32/32, tsc sauber, **READY**. Letzter offener Schritt vor `/deploy`: ein echter **formatierter** Live-Versand als Smoke-Test (fett/kursiv/Liste im Empfänger-Postfach prüfen) + die drei Umgebungs-Variablen + Produktions-Redirect-URI in Vercel/Google setzen.
+> **Stand 2026-07-07:** **Live auf https://crm-gc.vercel.app.** Beim Deploy wurde ein von der QA übersehener Fehler gefunden und behoben (Tracking-Pixel war login-geschützt → Middleware-Fix, siehe Deployment-Abschnitt). Live-Smoke-Test vom Nutzer bestätigt: formatierter Versand (fett/kursiv/Liste) kommt korrekt an.
 
 > **Umfang dieser Spec:** v1 = **Senden** aus der Kundenakte über Gmail. Das **Empfangen / Postfach-Sync** (eingehende E-Mails automatisch beim Kunden) ist eine **spätere Phase** der E-Mail-Funktion und hier bewusst Out of Scope.
 
@@ -333,4 +333,22 @@ Das E-Mail-Schreibfeld hat jetzt einen **Formatierungs-Editor** (fett, kursiv, A
 **READY** — keine Critical/High-Bugs. Empfohlene Reihenfolge vor `/deploy`: **L1 + L2** (schnelle Sicherheits-Härtung, je 1 Zeile) fixen, **M1** als Produktentscheidung klären (jetzt nachrüsten oder bewusst vertagen). L3–L5 sind optional.
 
 ## Deployment
-_To be added by /deploy_
+
+### Deploy 2026-07-07
+- **Live:** https://crm-gc.vercel.app — Vercel-Projekt `ewgeni-s-projects/crm-gc`
+- **Einrichtung durch den Nutzer (vor dem Deploy):** drei Umgebungs-Variablen bei Vercel gesetzt (`GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`) + Produktions-Redirect-URI `https://crm-gc.vercel.app/api/gmail/callback` im Google-OAuth-Client ergänzt.
+- **Vorab-Checks:** `tsc --noEmit` sauber · Vitest 59/59 · `next build` OK. (`npm run lint` ist projektweit defekt: `next lint` existiert in Next 16 nicht mehr und die ESLint-9-Konfiguration fehlt — bekanntes Werkzeug-Thema, kein Blocker; siehe „Bekannte Punkte".)
+
+### Beim Deploy gefundener & behobener Bug (QA-Korrektur)
+**Tracking-Pixel war login-geschützt** — die QA-Aussage „Tracking-Pixel öffentlich erreichbar (E2E grün)" war falsch: Der E2E-Lauf hatte gegen einen veralteten, noch laufenden Dev-Server auf Port 3000 getestet (`reuseExistingServer`). Gegen den echten Build schlug der Test fehl; die Middleware (`src/lib/supabase/middleware.ts`) leitete `/api/email/track/*` zu `/login` um → `opened_at` konnte nie gesetzt werden.
+**Fix** (Commit `461d88a`, vom Nutzer freigegeben): `/api/email/track/` in die `isPublic`-Liste der Middleware aufgenommen. Danach lokal wie live verifiziert: Pixel liefert `200` + `image/gif` + `no-store`; E2E 32/32 grün.
+**Lehre für künftige QA-Läufe:** Vor Playwright-Läufen sicherstellen, dass kein alter Server auf Port 3000 wiederverwendet wird (alten Prozess beenden oder gegen frischen Build testen).
+
+### Post-Deploy-Verifikation (2026-07-07)
+- Login-Seite `200` · Kundenakte & `/api/gmail/connect` ohne Login → `307 /login` · Tracking-Pixel öffentlich `200 image/gif no-store` · Security-Header gesetzt (`X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `HSTS`) — alles per curl gegen die Live-URL geprüft.
+- **Live-Smoke-Test durch den Nutzer bestätigt:** Gmail-Verbindung vorhanden (Tokens aus der gemeinsamen Supabase-DB), formatierte E-Mail (fett/kursiv/Liste) korrekt im Empfänger-Postfach angekommen.
+
+### Bekannte Punkte (nicht blockierend)
+- `npm run lint` defekt (Next 16 / ESLint 9) — Werkzeug-Reparatur bei Gelegenheit.
+- `ANTHROPIC_API_KEY` fehlte bei Vercel (betrifft nur die KI-Spaltenzuordnung des Excel-Imports online, PROJ-3); dem Nutzer zum Eintragen empfohlen.
+- Supabase-Free-Tier pausiert das Projekt nach ~1 Woche Inaktivität (am 2026-07-06 einmal aufgeweckt).

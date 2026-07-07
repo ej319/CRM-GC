@@ -88,7 +88,7 @@ Beim Einfügen in der Kundenakte werden Platzhalter mit den Daten des geöffnete
 - Einfügen einer Vorlage inkl. Platzhalter-Füllung fühlt sich sofort an (< 500 ms, keine Wartezeit)
 
 ## Open Questions
-- [ ] Sollen beim Löschen einer Vorlage deren Anhang-Dateien im Speicher sofort mitgelöscht werden oder (wie bei E-Mail-Anhängen) erhalten bleiben? → in /architecture klären
+- [x] Sollen beim Löschen einer Vorlage deren Anhang-Dateien im Speicher mitgelöscht werden? → **Ja, gelöst in /architecture:** Vorlagen-Anhänge liegen in einem eigenen Speicher-Bereich. Beim Einfügen in eine Mail wird die Datei *kopiert* (die Mail bekommt eine unabhängige eigene Kopie). Dadurch kann eine gelöschte Vorlage niemals eine bereits geschriebene oder gesendete Mail beschädigen — und die Vorlagen-Datei darf beim Löschen der Vorlage bedenkenlos mit entfernt werden.
 
 ## Decision Log
 
@@ -108,12 +108,90 @@ Beim Einfügen in der Kundenakte werden Platzhalter mit den Daten des geöffnete
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Vorlagen in der Datenbank (zwei neue Tabellen + eigener Datei-Bereich), nicht lokal im Browser | Vorlagen müssen team-weit geteilt und dauerhaft gespeichert werden (PRD: mehrnutzerfähig). Genau wie Notizen/Aktivitäten. | 2026-07-07 |
+| Zugriffsschutz („RLS") wie bei Notizen: jeder angemeldete Nutzer sieht/pflegt alle Vorlagen | Team-weite Vorlagen sind eine Produktentscheidung; identisches Muster ist erprobt und einfach zu prüfen. | 2026-07-07 |
+| Platzhalter werden im Browser gefüllt (nicht auf dem Server) | Die Kundendaten liegen beim Öffnen der Akte bereits im Browser vor → Einfügen ist sofort spürbar (kein Warten), Anforderung < 500 ms erfüllt. | 2026-07-07 |
+| Platzhalter-Logik als eigener, reiner Helfer mit Unit-Tests | Kernlogik (Anrede-Automatik, Ersatztexte, Betreff-Bereinigung) unabhängig testbar; QA kann jeden Fall abdecken. | 2026-07-07 |
+| Vorlagen-Anhänge in eigenem Speicher-Bereich („template-attachments"); beim Einfügen wird die Datei in den Mail-Bereich kopiert | Trennt die Lebensdauer sauber: Vorlage löschen berührt nie eine bereits geschriebene/gesendete Mail (löst die Open Question). | 2026-07-07 |
+| Speichern/Ändern/Löschen über Server-Aktionen mit Zod-Prüfung, wie Notizen/Aktivitäten | Konsistent mit dem restlichen Projekt, Pflichtfeld-Prüfung serverseitig (Projekt-Regel). | 2026-07-07 |
+| Vorlagen-Text wird beim Speichern UND beim Senden bereinigt (`sanitizeEmailHtml`) | Doppelter Schutz gegen schädliches HTML; die Garantie bleibt der bestehende Versand-Filter aus PROJ-7. | 2026-07-07 |
+| Menüpunkt „Vorlagen" ins bestehende Nutzer-Menü (Dropdown), keine neue Leiste | Navigation läuft im Projekt komplett über das Nutzer-Menü (Aktivitäten, Import); konsistent und minimaler Eingriff. | 2026-07-07 |
+| Keine neue Bibliothek nötig | Alle Bausteine vorhanden (Formatierungs-Editor, Auswahl-/Dialog-/Tabellen-Komponenten, HTML-Bereinigung, Zod). | 2026-07-07 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick in einem Satz
+PROJ-9 bekommt eine eigene **Vorlagen-Seite** zum Pflegen der Vorlagen (in der Datenbank gespeichert, team-weit) und eine **Vorlagen-Auswahl im E-Mail-Schreibfenster**, die eine Vorlage auswählt, die Platzhalter mit den Daten des geöffneten Kunden füllt und die Vorlagen-Anhänge als eigene Kopien in die Mail übernimmt.
+
+### A) Was der Nutzer sieht (Baumstruktur)
+
+```
+Nutzer-Menü (oben rechts)
+└── neuer Eintrag „Vorlagen"  →  führt zur Vorlagen-Seite
+
+Vorlagen-Seite  (/vorlagen, nur angemeldet)
+├── Kopfzeile: „E-Mail-Vorlagen"  +  Knopf „Neue Vorlage"
+├── Leer-Zustand: freundlicher Hinweis + „Erste Vorlage anlegen"
+└── Tabelle/Liste der Vorlagen
+    └── pro Zeile: Name · Betreff-Vorschau · zuletzt geändert · [Bearbeiten] [Löschen]
+
+Vorlagen-Editor (Dialog, zum Anlegen & Bearbeiten)
+├── Feld „Name" (Pflicht)
+├── Feld „Betreff" (optional)
+├── Knopf „Platzhalter einfügen" (Auswahlliste: {Anrede}, {Firma}, {Ansprechpartner} …)
+├── Formatierungs-Editor für den Text (derselbe wie im Schreibfenster)
+├── Bereich „Ersatztexte" (je genutztem Platzhalter ein optionales Feld)
+├── Anhänge (hochladen, als entfernbare Chips)
+└── [Abbrechen] [Speichern]
+
+E-Mail-Schreibfenster (Kundenakte → Reiter „E-Mail", bestehende Komponente)
+└── NEU: Auswahl „Vorlage …" ganz oben
+    ├── wählt Vorlage → (falls schon Text da: Rückfrage „Ersetzen?")
+    ├── setzt Betreff + Text, Platzhalter mit Kundendaten gefüllt
+    └── übernimmt Vorlagen-Anhänge als eigene, entfernbare Chips
+```
+
+### B) Welche Informationen gespeichert werden (in einfachen Worten)
+
+**Neue Tabelle „E-Mail-Vorlagen":**
+- eindeutige Kennung
+- Name (Pflicht)
+- Betreff (optional)
+- Text als formatiertes HTML
+- Ersatztexte für Platzhalter (eine kleine Zuordnung, z. B. „Firma → unser Kunde")
+- wer zuletzt geändert hat + Zeitstempel „erstellt"/„geändert"
+
+**Neue Tabelle „Vorlagen-Anhänge":** Name, Größe, Typ, Speicherort der Datei — hängt an einer Vorlage; wird die Vorlage gelöscht, verschwinden die Einträge automatisch mit.
+
+**Neuer Datei-Bereich „template-attachments":** ein privater Speicher-Ordner nur für Vorlagen-Anhänge, getrennt vom E-Mail-Anhang-Ordner. Nur angemeldete Nutzer haben Zugriff.
+
+**Speicherort:** Supabase-Datenbank + Supabase-Storage — dieselbe Technik wie bei E-Mails und Anhängen aus PROJ-7. Nichts liegt nur lokal im Browser.
+
+### C) Wie das Einfügen technisch abläuft (der knifflige Teil)
+
+1. Auf der Kundenakte sind die Kundendaten schon im Browser → die **Platzhalter-Ersetzung passiert sofort im Browser** (kein Server-Umweg, kein Warten).
+2. Für die **Anrede** greift die feste Automatik: mit Ansprechpartner „Guten Tag [Name]," — ohne „Sehr geehrte Damen und Herren,". Andere leere Platzhalter nehmen den Ersatztext der Vorlage oder bleiben leer. Danach werden im Betreff überflüssige Leerzeichen bereinigt.
+3. Die **Anhänge der Vorlage werden kopiert**: Beim Einfügen entsteht pro Vorlagen-Anhang eine eigene, unabhängige Datei im E-Mail-Anhang-Bereich. Ab da gehört sie zur Mail — genau wie ein selbst hochgeladener Anhang. Deshalb kann das spätere Löschen der Vorlage einer offenen oder gesendeten Mail nichts anhaben.
+4. Ab hier ist alles wie gewohnt: Der Nutzer kann alles ändern und sendet über den bestehenden PROJ-7-Weg.
+
+### D) Was neu gebaut wird (Bausteine, Entwickler-Sicht)
+- **Datenzugriff/Logik:** neues Modul für Vorlagen (`getTemplates`, `createTemplate`, `updateTemplate`, `deleteTemplate`) nach dem Muster von Notizen/Aktivitäten, mit Zod-Prüfung.
+- **Reiner Helfer** für Platzhalter (Anrede-Automatik, Ersatztexte, Betreff-Bereinigung) — mit Unit-Tests.
+- **Seite** `/vorlagen` + **Editor-Dialog** + **Vorlagen-Tabelle** (nutzt vorhandene shadcn-Bausteine: Tabelle, Dialog, Auswahl, Formatierungs-Editor).
+- **Erweiterung** am bestehenden `EmailComposer`: Vorlagen-Auswahl oben, Ersetzen-Rückfrage, Kopieren der Anhänge.
+- **Menüpunkt** „Vorlagen" im Nutzer-Menü.
+- **Datenbank-Migration** (zwei Tabellen + Zugriffsschutz) und **neuer Storage-Bereich** — über die Supabase-Anbindung.
+
+### E) Sicherheit
+- Login-Pflicht für Seite und alle Aktionen (Zugriffsschutz wie bei Notizen/Aktivitäten).
+- Vorlagen-Text wird beim Speichern und beim Senden bereinigt → kein neuer Weg für schädliches HTML.
+- Privater Datei-Bereich, keine öffentlichen Vorlagen-Anhänge.
+
+### F) Zusätzliche Pakete
+**Keine.** Alles Nötige ist bereits im Projekt (Formatierungs-Editor, shadcn-Bausteine, HTML-Bereinigung `sanitize-html`, Zod).
 
 ## QA Test Results
 _To be added by /qa_

@@ -84,9 +84,9 @@
 - Login-Pflicht; Signatur pro Nutzer über Zugriffsschutz getrennt; Vorlagen-Bilder team-weit wie die Vorlagen selbst.
 
 ## Open Questions
-- [ ] Reihenfolge der Umsetzung: erst Signatur (Teil A), dann Bilder im Text (Teil B) — oder beides zusammen? (Empfehlung: Signatur zuerst, da häufigster Nutzen; im /architecture-Schritt entscheiden.)
-- [ ] Genaue Maß-/Größen-Grenzen (max. Breite in Pixeln, max. MB pro Bild) — im /architecture-Schritt festlegen.
-- [ ] Soll die Signatur auch bei reinen „Antwort"-Mails automatisch kommen? (Aktuell gibt es nur Neu-Mails aus der Kundenakte — daher vorerst kein Sonderfall.)
+- [x] Genaue Maß-/Größen-Grenzen → **gelöst in /architecture:** Bilder werden beim Hochladen automatisch auf **max. 1000 px Breite** verkleinert; **max. ~2 MB pro Bild** nach Optimierung; **Mail-Gesamtgröße ~20 MB** (sicher unter Gmails 25-MB-Grenze) → sonst Hinweis vor dem Senden.
+- [x] Signatur bei „Antwort"-Mails → **gelöst:** entfällt vorerst; es gibt nur Neu-Mails aus der Kundenakte, kein Sonderfall.
+- [x] Reihenfolge → **gelöst:** zwei Phasen (Signatur zuerst, dann Bilder im Vorlagentext).
 
 ## Decision Log
 
@@ -105,12 +105,76 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Umsetzung in **2 Phasen**: Phase 1 Signatur, Phase 2 Bilder im Vorlagentext | Beide nutzen dasselbe Bild-Fundament (Upload, Optimierung, Einbetten); Signatur zuerst = schneller sichtbarer Nutzen, kleinere erste Auslieferung | 2026-07-09 |
+| Bilder **beim Hochladen im Browser** verkleinern/optimieren (max. 1000 px Breite, Ziel < 2 MB) statt serverseitig | Keine neue schwere Server-Bibliothek nötig; entlastet den Server; Ergebnis liegt direkt sende-fertig im Speicher | 2026-07-09 |
+| Bilder in **eigenem privaten Speicher-Bereich** ablegen; in App/Editor über eine **login-geschützte Bild-Adresse** anzeigen | Bilder bleiben privat (nie öffentlich); Editor kann sie trotzdem zeigen | 2026-07-09 |
+| Beim **Senden** die Bilder aus dem Text herauslesen und **fest in die Mail einbetten** (Technik: „multipart/related" mit `cid:`-Verweisen) | Die zuverlässige Anzeige inkl. Outlook; baut auf dem bestehenden Nachrichten-Bau (`mime.ts`) auf | 2026-07-09 |
+| Signatur in **eigener Tabelle pro Nutzer** (genau eine je Nutzer) + Signatur-Bilder im privaten Bereich | Signatur ist persönlich; sauber getrennt von team-weiten Vorlagen | 2026-07-09 |
+| Sicherheitsfilter (`sanitizeEmailHtml`) **kontrolliert erweitern**: `<img>` nur mit Verweis auf **eigene** Bilder erlaubt, keine fremden URLs, kein SVG, keine Skripte | Bilder ermöglichen, ohne ein neues XSS-/Tracking-Einfallstor zu öffnen | 2026-07-09 |
+| Formatierungs-Editor um **Bild-Knopf** erweitern (auf dem bestehenden `RichTextEditor` aufbauen) | Wiederverwendung; derselbe Editor dient Vorlagen und Signatur | 2026-07-09 |
+| **Keine neue externe Bibliothek** nötig (Browser-Bordmittel fürs Verkleinern, bestehendes `sanitize-html`, bestehender MIME-Bau) | Schlank, wartungsarm, konsistent | 2026-07-09 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick in einem Satz
+PROJ-15 fügt ein gemeinsames **Bild-Fundament** hinzu (Bilder privat hochladen → im Browser optimieren → beim Senden fest in die Mail einbetten) und nutzt es an zwei Stellen: einer **persönlichen Signatur** (neue „Einstellungen"-Seite) und **Bildern im Vorlagentext** (Bild-Knopf im Vorlagen-Editor).
+
+### Reihenfolge: zwei Phasen
+- **Phase 1 — Signatur:** neue „Einstellungen"-Seite, Signatur-Editor mit Bild, automatisches (abschaltbares) Einfügen im Schreibfenster, Einbetten beim Senden. Bringt sofort sichtbaren Nutzen.
+- **Phase 2 — Bilder im Vorlagentext:** Bild-Knopf im Vorlagen-Editor; die Bilder reisen beim Einfügen der Vorlage mit. Nutzt exakt dasselbe Fundament aus Phase 1.
+
+### A) Was der Nutzer sieht (Baumstruktur)
+
+```
+Nutzer-Menü (oben rechts)
+└── NEU: „Einstellungen"  →  Einstellungen-Seite
+
+Einstellungen-Seite  (/einstellungen, nur angemeldet)          [Phase 1]
+└── Bereich „E-Mail-Signatur"
+    ├── Formatierungs-Editor (Text) + Bild-Knopf (Logo hochladen)
+    ├── Vorschau der Signatur
+    └── [Speichern]
+
+E-Mail-Schreibfenster (Kundenakte → „E-Mail")                  [Phase 1]
+├── NEU: Schalter „Signatur anhängen" (an/aus)
+└── Signatur erscheint automatisch unten im Text (wenn Schalter an)
+
+Vorlagen-Editor (aus PROJ-9)                                    [Phase 2]
+└── Formatierungsleiste: NEU: Bild-Knopf → Bild an Cursor-Stelle einfügen
+```
+
+### B) Welche Informationen gespeichert werden (in einfachen Worten)
+
+**Neue Tabelle „Signatur" (eine pro Nutzer):** formatierter Text (HTML) + Verweise auf die Signatur-Bilder + Zeitstempel. Nur der eigene Nutzer sieht/ändert sie.
+
+**Bilder:** liegen in einem **neuen privaten Speicher-Bereich** (getrennt von den Datei-Anhängen). Jedes Bild: Name, Typ, Größe, Speicherort. Vorlagen-Bilder gehören zur Vorlage (team-weit, wie PROJ-9), Signatur-Bilder zur Signatur (pro Nutzer).
+
+**Nichts liegt nur im Browser** — alles in der Supabase-Datenbank + Storage, wie im ganzen Projekt.
+
+### C) Wie ein Bild seinen Weg nimmt (der knifflige Teil, einfach erklärt)
+
+1. **Hochladen:** Beim Einfügen wählt der Nutzer ein Bild. Der Browser **verkleinert es sofort** (max. 1000 px Breite) und prüft Format (JPG/PNG/GIF) und Größe. Danach landet es im privaten Speicher-Bereich.
+2. **Anzeigen in der App:** Im Editor und in der Vorschau wird das Bild über eine **login-geschützte Adresse** angezeigt — es bleibt also privat, ist aber sichtbar.
+3. **Senden:** Kurz vor dem Versand liest das System die Bilder aus dem Text, **packt sie fest in die Mail** (nicht als Datei-Anhang, sondern „inline" im Text) und ersetzt die App-Adresse durch einen internen Mail-Verweis. Ergebnis: Der Empfänger sieht die Bilder sofort — auch in Outlook.
+4. **Unabhängigkeit:** Wie bei den Anhängen aus PROJ-9 bekommt jede gesendete Mail ihre eigene eingebettete Kopie. Das spätere Ändern/Löschen einer Signatur oder Vorlage berührt bereits gesendete Mails nicht.
+
+### D) Was neu gebaut wird (Entwickler-Sicht, knapp)
+- **Bild-Fundament:** Browser-Optimierung (Verkleinern/Prüfen), privater Storage-Bereich, login-geschützte Bild-Anzeige-Route, Einbett-Logik beim Senden (Erweiterung von `mime.ts` auf „multipart/related" + `cid:`-Verweise).
+- **Sicherheitsfilter** (`sanitizeEmailHtml`) kontrolliert um `<img>` erweitern (nur eigene Bilder, kein SVG, keine fremden URLs).
+- **Phase 1:** „Einstellungen"-Seite + Signatur-Editor + Datenschicht/Server-Aktionen für die Signatur; Schalter + Auto-Einfügen im `EmailComposer`; Menüpunkt.
+- **Phase 2:** Bild-Knopf im `RichTextEditor`/Vorlagen-Editor; Vorlagen-Bilder beim Einfügen mitnehmen.
+- **Datenbank-Migration** (Signatur-Tabelle + neuer privater Storage-Bereich) — über die Supabase-Anbindung, mit Nutzer-Freigabe wie bei PROJ-9.
+
+### E) Sicherheit
+- Login-Pflicht überall; Signatur pro Nutzer über Zugriffsschutz getrennt.
+- Nur **selbst hochgeladene** Bilder; kein Einfügen fremder Web-Bilder; **kein SVG** (Skript-Gefahr).
+- Der HTML-Filter bleibt die Schutz-Garantie und wird nur eng kontrolliert geöffnet.
+
+### F) Zusätzliche Pakete
+**Keine.** Browser-Bordmittel fürs Verkleinern, bestehendes `sanitize-html`, bestehender MIME-Bau reichen aus.
 
 ## QA Test Results
 _To be added by /qa_

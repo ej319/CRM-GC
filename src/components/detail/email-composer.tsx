@@ -24,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { RichTextEditor } from "@/components/detail/rich-text-editor";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -58,6 +59,8 @@ interface EmailComposerProps {
   onSend: (draft: EmailDraft) => Promise<boolean>;
   templates: EmailTemplate[];
   customerFields: TemplateCustomerFields;
+  /** Persönliche Signatur (HTML, bereits bereinigt) – leer, wenn keine angelegt. */
+  signatureHtml: string;
 }
 
 /** Prüft, ob der HTML-Text inhaltlich leer ist. */
@@ -80,6 +83,7 @@ export function EmailComposer({
   onSend,
   templates,
   customerFields,
+  signatureHtml,
 }: EmailComposerProps) {
   const [to, setTo] = useState(customerEmail ?? "");
   const [cc, setCc] = useState("");
@@ -92,6 +96,8 @@ export function EmailComposer({
   // Vorlage, für die noch die „Ersetzen?"-Rückfrage offen ist.
   const [pendingTemplate, setPendingTemplate] = useState<EmailTemplate | null>(null);
   const [applyingTemplate, setApplyingTemplate] = useState(false);
+  // Signatur standardmäßig anhängen, wenn eine hinterlegt ist.
+  const [signatureOn, setSignatureOn] = useState(Boolean(signatureHtml));
 
   // Noch kein Gmail verbunden → Aufforderung statt Schreibfenster.
   if (!connected) {
@@ -175,12 +181,15 @@ export function EmailComposer({
 
   async function handleSend() {
     if (!to.trim()) return;
+    // Signatur ans Ende setzen (falls aktiviert und vorhanden).
+    const finalBody =
+      signatureOn && signatureHtml ? `${body}<br><br>${signatureHtml}` : body;
     setSending(true);
     const ok = await onSend({
       to,
       cc: showCc && cc.trim() ? cc : undefined,
       subject,
-      body,
+      body: finalBody,
       attachments,
     });
     setSending(false);
@@ -278,6 +287,28 @@ export function EmailComposer({
           placeholder="Nachricht schreiben …"
         />
       </div>
+
+      {signatureHtml ? (
+        <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="sig-toggle" className="text-sm">
+              Signatur anhängen
+            </Label>
+            <Switch
+              id="sig-toggle"
+              checked={signatureOn}
+              onCheckedChange={setSignatureOn}
+            />
+          </div>
+          {signatureOn ? (
+            <div
+              className="border-t pt-2 text-sm text-muted-foreground [&_img]:my-1 [&_img]:max-w-full"
+              // Signatur wurde beim Speichern serverseitig bereinigt (sanitizeEmailHtml).
+              dangerouslySetInnerHTML={{ __html: signatureHtml }}
+            />
+          ) : null}
+        </div>
+      ) : null}
 
       {attachments.length > 0 ? (
         <ul className="flex flex-wrap gap-2">

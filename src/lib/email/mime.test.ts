@@ -78,4 +78,55 @@ describe("buildRawMessage", () => {
     expect(msg).toContain('Content-Disposition: attachment; filename="angebot.pdf"');
     expect(msg).toContain("application/pdf");
   });
+
+  it("baut multipart/related mit eingebettetem Bild (cid)", () => {
+    const raw = buildRawMessage({
+      from: "a@b.de",
+      to: "c@d.de",
+      subject: "Mit Logo",
+      html: '<p>x</p><img src="cid:logo1@crm">',
+      inlineImages: [
+        {
+          fileName: "logo.png",
+          contentType: "image/png",
+          base64: Buffer.from("PNG-Bytes").toString("base64"),
+          cid: "logo1@crm",
+        },
+      ],
+    });
+    const msg = decode(raw);
+    expect(msg).toContain("Content-Type: multipart/related; boundary=");
+    expect(msg).toContain("Content-ID: <logo1@crm>");
+    expect(msg).toContain("Content-Disposition: inline; filename=\"logo.png\"");
+    expect(msg).toContain("image/png");
+  });
+
+  it("baut mixed[related, anhang], wenn Bild UND Anhang vorhanden sind", () => {
+    const raw = buildRawMessage({
+      from: "a@b.de",
+      to: "c@d.de",
+      subject: "Beides",
+      html: '<img src="cid:logo1@crm">',
+      inlineImages: [
+        {
+          fileName: "logo.png",
+          contentType: "image/png",
+          base64: Buffer.from("PNG").toString("base64"),
+          cid: "logo1@crm",
+        },
+      ],
+      attachments: [
+        {
+          fileName: "angebot.pdf",
+          contentType: "application/pdf",
+          base64: Buffer.from("PDF").toString("base64"),
+        },
+      ],
+    });
+    const msg = decode(raw);
+    expect(msg).toContain("Content-Type: multipart/mixed; boundary=");
+    expect(msg).toContain("Content-Type: multipart/related; boundary=");
+    expect(msg).toContain("Content-ID: <logo1@crm>");
+    expect(msg).toContain('Content-Disposition: attachment; filename="angebot.pdf"');
+  });
 });

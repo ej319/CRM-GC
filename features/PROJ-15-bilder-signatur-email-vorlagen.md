@@ -1,8 +1,10 @@
 # PROJ-15: Bilder & Signatur in E-Mail-Vorlagen
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-07-08
-**Last Updated:** 2026-07-08
+**Last Updated:** 2026-07-09
+
+> **Stand 2026-07-09:** **Beide Phasen gebaut** (Signatur + Bilder im Vorlagentext) und lokal verifiziert: tsc sauber · Vitest **82/82** grün (13 neue Tests fürs Bild-Fundament, den Filter und den MIME-Bau) · `next build` inkl. neuer Routen `/einstellungen` und `/api/email/image/[key]`. **Der bestehende Versand bleibt unverändert, solange keine Bilder im Spiel sind** (rückwärtskompatibel, alte MIME-Tests grün). Code ist „inert", bis die Migration `supabase/migrations/proj15_signatur_bilder.sql` (Signatur-Tabelle + Bild-Bucket) auf die Live-DB angewandt ist — braucht Nutzer-Freigabe. Danach `/qa`/Live-Test.
 
 > **Kurzfassung:** Zwei zusammengehörige Bild-Funktionen für E-Mails, die sich dasselbe technische Fundament teilen (Bilder hochladen, optimieren und **fest in die Mail einbetten**, damit sie beim Empfänger — auch in Outlook — sofort sichtbar sind):
 > 1. **Persönliche Signatur** (pro Nutzer) mit Logo, die automatisch (abschaltbar) unten in jede Mail eingesetzt wird.
@@ -113,6 +115,37 @@
 | Sicherheitsfilter (`sanitizeEmailHtml`) **kontrolliert erweitern**: `<img>` nur mit Verweis auf **eigene** Bilder erlaubt, keine fremden URLs, kein SVG, keine Skripte | Bilder ermöglichen, ohne ein neues XSS-/Tracking-Einfallstor zu öffnen | 2026-07-09 |
 | Formatierungs-Editor um **Bild-Knopf** erweitern (auf dem bestehenden `RichTextEditor` aufbauen) | Wiederverwendung; derselbe Editor dient Vorlagen und Signatur | 2026-07-09 |
 | **Keine neue externe Bibliothek** nötig (Browser-Bordmittel fürs Verkleinern, bestehendes `sanitize-html`, bestehender MIME-Bau) | Schlank, wartungsarm, konsistent | 2026-07-09 |
+
+---
+
+## Implementation Notes
+
+### Frontend + Backend (2026-07-09) — beide Phasen
+Datenschicht/Logik zuerst mit Tests, dann UI; der Live-Versand blieb rückwärtskompatibel.
+
+**Bild-Fundament (gemeinsam):**
+- `src/lib/email/images.ts` — reine Helfer: App-Bildadresse bauen, Bild-Verweise im HTML finden (`extractImagePaths`), auf `cid:` umschreiben (`rewriteImagesToCid`), Größen-Mathe (`fitWidth`) + Konstanten (Formate, 1000 px, ~2 MB). Mit `images.test.ts` (8 Tests).
+- `src/lib/email/optimize-image.ts` (Browser) — verkleinert JPG/PNG per Canvas, GIF bleibt unverändert; Format-Prüfung.
+- `src/lib/email/upload-image.ts` (Browser) — optimiert + lädt in den Bucket `email-images` und liefert die App-Adresse.
+- `src/app/api/email/image/[key]/route.ts` — login-geschützte Anzeige der privaten Bilder.
+- `sanitize.ts` — `<img>` nur mit eigener Quelle (App-Route oder `cid:`) erlaubt; kein SVG, keine fremden URLs (+2 Tests).
+- `mime.ts` — neuer `multipart/related`-Zweig für eingebettete Bilder (`InlineImage`, `Content-ID`); bestehende Pfade unverändert (+3 Tests, alte grün).
+- `email/actions.ts` `sendEmail` — lädt die Bilder aus dem HTML, bettet sie ein (cid), Größen-Gesamtprüfung (~22 MB). Im Verlauf gespeicherter Text behält die App-Bildadressen.
+
+**Phase 1 — Signatur:**
+- `src/lib/signature/{data,queries,actions}.ts` — eine Signatur pro Nutzer; `saveSignature` bereinigt mit `sanitizeEmailHtml`.
+- `src/app/einstellungen/page.tsx` + `src/components/settings/signature-editor.tsx` — Signatur-Editor (Formatierung + Bild-Knopf).
+- `src/components/detail/editor-image-button.tsx` — wiederverwendbarer Bild-Knopf (Upload + Einfügen).
+- `rich-text-editor.tsx` — um `insertHtml` erweitert (rückwärtskompatibel).
+- `email-composer.tsx` — Schalter „Signatur anhängen" (Standard an, wenn Signatur vorhanden) + Vorschau; Signatur wird beim Senden ans Ende gesetzt.
+- Menüpunkt „Einstellungen"; Signatur wird über `kunde/[id]/page.tsx` → CustomerDetail → DetailComposer → Composer durchgereicht.
+
+**Phase 2 — Bilder im Vorlagentext:**
+- `template-editor-dialog.tsx` — derselbe Bild-Knopf in der Formatierungsleiste. Beim Senden werden die Bilder (wie in der Signatur) eingebettet.
+
+**Datenbank:** Migration `supabase/migrations/proj15_signatur_bilder.sql` (Tabelle `user_signatures` mit Nutzer-eigener RLS + privater Bucket `email-images` + Policies). **Noch nicht live angewandt.**
+
+**Verifikation:** tsc sauber · Vitest **82/82** · `next build` (neue Routen erzeugt).
 
 ---
 <!-- Sections below are added by subsequent skills -->

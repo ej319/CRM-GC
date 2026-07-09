@@ -7,13 +7,25 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendMail, disconnect as gmailDisconnect, GmailReconnectError } from "@/lib/email/gmail";
-import type { RawAttachment } from "@/lib/email/mime";
+import type { RawAttachment, InlineImage } from "@/lib/email/mime";
 import { normalizeRecipients, wrapHtmlDocument, type Email } from "@/lib/email/data";
 import { sanitizeEmailHtml } from "@/lib/email/sanitize";
+import { extractImagePaths, rewriteImagesToCid } from "@/lib/email/images";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 
 const MAX_ATTACH_TOTAL = 18 * 1024 * 1024; // ~18 MB roh → unter Gmails 25-MB-Grenze nach Kodierung
+const MAX_MAIL_TOTAL = 22 * 1024 * 1024; // Anhänge + eingebettete Bilder zusammen
+
+const EMAIL_IMAGE_BUCKET = "email-images";
+
+function guessImageType(name: string): string {
+  const ext = name.split(".").pop()?.toLowerCase();
+  if (ext === "png") return "image/png";
+  if (ext === "gif") return "image/gif";
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  return "application/octet-stream";
+}
 
 interface AttachmentInput {
   path: string;
@@ -102,11 +114,66 @@ export async function sendEmail(
     }
   }
 
+  // Eigene Bilder aus dem Text laden und fest in die Mail einbetten (inline/cid),
+  // damit sie beim Empfänger zuverlässig angezeigt werden (auch Outlook).
+  // Der im Verlauf gespeicherte Text (html) bleibt unverändert (App-Bild-Adressen);
+  // nur die zu sendende Fassung (htmlToSend) verweist auf die eingebetteten Bilder.
+  let htmlToSend = html;
+  const inlineImages: InlineImage[] = [];
+  const imagePaths = extractImagePaths(html);
+  if (imagePaths.length > 0) {
+    let admin;
+    try {
+      admin = createAdminClient();
+    } catch {
+      return { ok: false, error: "Bilder sind noch nicht eingerichtet (Service-Schlüssel fehlt)." };
+    }
+    const cidByPath = new Map<string, string>();
+    let imageBytes = 0;
+    for (const path of imagePaths) {
+      const { data: blob, error } = await admin.storage
+        .from(EMAIL_IMAGE_BUCKET)
+        .download(path);
+      if (error || !blob) {
+        return { ok: false, error: "Ein Bild aus der Nachricht konnte nicht geladen werden." };
+      }
+      const bytes = Buffer.from(await blob.arrayBuffer());
+      imageBytes += bytes.length;
+      const fileName = path.split("/").pop() || "bild";
+      const cid = `${randomUUID()}@crm`;
+      cidByPath.set(path, cid);
+      inlineImages.push({
+        fileName,
+        contentType: blob.type || guessImageType(fileName),
+        base64: bytes.toString("base64"),
+        cid,
+      });
+    }
+    const attachBytes = rawAttachments.reduce(
+      (s, a) => s + Buffer.byteLength(a.base64, "base64"),
+      0,
+    );
+    if (attachBytes + imageBytes > MAX_MAIL_TOTAL) {
+      return {
+        ok: false,
+        error: "Die Mail ist mit Bildern und Anhängen zu groß. Bitte Bilder verkleinern oder weglassen.",
+      };
+    }
+    htmlToSend = rewriteImagesToCid(html, cidByPath);
+  }
+
   // Senden.
   let messageId = "";
   let from = "";
   try {
-    const res = await sendMail(user.id, { to, cc, subject, html, attachments: rawAttachments });
+    const res = await sendMail(user.id, {
+      to,
+      cc,
+      subject,
+      html: htmlToSend,
+      attachments: rawAttachments,
+      inlineImages,
+    });
     messageId = res.messageId;
     from = res.from;
   } catch (err) {

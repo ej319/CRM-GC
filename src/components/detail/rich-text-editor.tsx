@@ -13,9 +13,10 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
-/** Von außen aufrufbare Methoden des Editors (z. B. Platzhalter einfügen). */
+/** Von außen aufrufbare Methoden des Editors (z. B. Platzhalter/Bild einfügen). */
 export interface RichTextEditorHandle {
   insertText: (text: string) => void;
+  insertHtml: (html: string) => void;
 }
 
 interface RichTextEditorProps {
@@ -77,13 +78,20 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       if (el) onChange(el.innerHTML);
     }
 
-    // Platzhalter-Text an der aktuellen Cursor-Position einfügen.
+    // Text bzw. HTML (z. B. Bild) an der aktuellen Cursor-Position einfügen.
     useImperativeHandle(handleRef, () => ({
       insertText(text: string) {
         const el = ref.current;
         if (!el) return;
         el.focus();
         document.execCommand("insertText", false, text);
+        onChange(el.innerHTML);
+      },
+      insertHtml(html: string) {
+        const el = ref.current;
+        if (!el) return;
+        el.focus();
+        document.execCommand("insertHTML", false, html);
         onChange(el.innerHTML);
       },
     }));

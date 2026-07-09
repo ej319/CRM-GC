@@ -57,6 +57,7 @@ export function CustomerDetail({
   gmailConnected,
   gmailEmail,
   templates,
+  signatureHtml,
 }: {
   customer: Customer | null;
   initialNotes: Note[];
@@ -65,6 +66,7 @@ export function CustomerDetail({
   gmailConnected: boolean;
   gmailEmail?: string;
   templates: EmailTemplate[];
+  signatureHtml: string;
 }) {
   if (!customer) {
     return (
@@ -87,6 +89,7 @@ export function CustomerDetail({
       gmailConnected={gmailConnected}
       gmailEmail={gmailEmail}
       templates={templates}
+      signatureHtml={signatureHtml}
     />
   );
 }
@@ -99,6 +102,7 @@ function CustomerDetailView({
   gmailConnected,
   gmailEmail,
   templates,
+  signatureHtml,
 }: {
   customer: Customer;
   initialNotes: Note[];
@@ -107,6 +111,7 @@ function CustomerDetailView({
   gmailConnected: boolean;
   gmailEmail?: string;
   templates: EmailTemplate[];
+  signatureHtml: string;
 }) {
   const [deleting, setDeleting] = useState(false);
   const [notes, setNotes] = useState<Note[]>(initialNotes);
@@ -264,6 +269,7 @@ function CustomerDetailView({
             onSendEmail={handleSendEmail}
             templates={templates}
             customerFields={customerFields}
+            signatureHtml={signatureHtml}
           />
 
           <Card className={focus ? undefined : "border-dashed"}>

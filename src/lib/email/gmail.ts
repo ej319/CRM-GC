@@ -4,7 +4,7 @@ import { google } from "googleapis";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { buildRawMessage, type RawAttachment } from "@/lib/email/mime";
+import { buildRawMessage, type RawAttachment, type InlineImage } from "@/lib/email/mime";
 import type { GmailStatus } from "@/lib/email/data";
 
 // Nur Senden + die verbundene Adresse lesen – Minimalprinzip (Lese-Sync kommt später).
@@ -140,6 +140,7 @@ interface SendOptions {
   subject: string;
   html: string;
   attachments?: RawAttachment[];
+  inlineImages?: InlineImage[];
 }
 
 /** Versendet eine E-Mail über die Gmail-API im Namen des Postfachs des Nutzers. */
@@ -165,6 +166,7 @@ export async function sendMail(
     subject: opts.subject,
     html: opts.html,
     attachments: opts.attachments,
+    inlineImages: opts.inlineImages,
   });
 
   try {

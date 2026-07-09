@@ -43,4 +43,24 @@ describe("sanitizeEmailHtml", () => {
   it("kommt mit leerer Eingabe klar", () => {
     expect(sanitizeEmailHtml("")).toBe("");
   });
+
+  it("behält eigene Bilder (App-Route und cid)", () => {
+    const own = sanitizeEmailHtml(
+      '<img src="/api/email/image/abc%2Flogo.png" alt="Logo" width="200">',
+    );
+    expect(own).toContain('src="/api/email/image/abc%2Flogo.png"');
+    expect(own).toContain('width="200"');
+
+    const cid = sanitizeEmailHtml('<img src="cid:img1@crm">');
+    expect(cid).toContain('src="cid:img1@crm"');
+  });
+
+  it("entfernt fremde Bilder und data:-Bilder", () => {
+    expect(sanitizeEmailHtml('<img src="https://fremd.de/track.png">')).not.toContain(
+      "<img",
+    );
+    expect(sanitizeEmailHtml('<img src="data:image/png;base64,AAAA">')).not.toContain(
+      "<img",
+    );
+  });
 });

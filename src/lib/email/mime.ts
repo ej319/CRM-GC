@@ -8,6 +8,15 @@ export interface RawAttachment {
   base64: string;
 }
 
+/** Ein ins HTML eingebettetes Bild (inline), referenziert über cid. */
+export interface InlineImage {
+  fileName: string;
+  contentType: string;
+  base64: string;
+  /** Content-ID; im HTML als src="cid:<cid>" referenziert. */
+  cid: string;
+}
+
 interface BuildOptions {
   from: string;
   to: string;
@@ -15,6 +24,7 @@ interface BuildOptions {
   subject: string;
   html: string;
   attachments?: RawAttachment[];
+  inlineImages?: InlineImage[];
 }
 
 /** RFC-2047-kodierung für Header mit Nicht-ASCII (z.B. Umlaute im Betreff). */
@@ -31,9 +41,13 @@ function wrap76(b64: string): string {
   return b64.replace(/(.{76})/g, "$1\r\n").trimEnd();
 }
 
+function boundary(prefix = "b"): string {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`;
+}
+
 /** Baut die komplette Nachricht und gibt sie als base64url zurück (Gmail-Format). */
 export function buildRawMessage(opts: BuildOptions): string {
-  const { from, to, cc, subject, html, attachments = [] } = opts;
+  const { from, to, cc, subject, html, attachments = [], inlineImages = [] } = opts;
   const lines: string[] = [];
   lines.push(`From: ${from}`);
   lines.push(`To: ${to}`);
@@ -43,30 +57,79 @@ export function buildRawMessage(opts: BuildOptions): string {
 
   const htmlB64 = wrap76(Buffer.from(html, "utf8").toString("base64"));
 
-  if (attachments.length === 0) {
+  const emitHtml = () => {
     lines.push('Content-Type: text/html; charset="UTF-8"');
     lines.push("Content-Transfer-Encoding: base64");
     lines.push("");
     lines.push(htmlB64);
-  } else {
-    const boundary = `b_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`;
-    lines.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
-    lines.push("");
-    lines.push(`--${boundary}`);
-    lines.push('Content-Type: text/html; charset="UTF-8"');
+  };
+  const emitAttachment = (att: RawAttachment) => {
+    const safeName = att.fileName.replace(/["\r\n]/g, "_");
+    lines.push(`Content-Type: ${att.contentType || "application/octet-stream"}; name="${safeName}"`);
     lines.push("Content-Transfer-Encoding: base64");
+    lines.push(`Content-Disposition: attachment; filename="${safeName}"`);
     lines.push("");
-    lines.push(htmlB64);
-    for (const att of attachments) {
-      const safeName = att.fileName.replace(/["\r\n]/g, "_");
-      lines.push(`--${boundary}`);
-      lines.push(`Content-Type: ${att.contentType || "application/octet-stream"}; name="${safeName}"`);
-      lines.push("Content-Transfer-Encoding: base64");
-      lines.push(`Content-Disposition: attachment; filename="${safeName}"`);
-      lines.push("");
-      lines.push(wrap76(att.base64));
+    lines.push(wrap76(att.base64));
+  };
+  const emitInline = (img: InlineImage) => {
+    const safeName = img.fileName.replace(/["\r\n]/g, "_");
+    lines.push(`Content-Type: ${img.contentType || "application/octet-stream"}; name="${safeName}"`);
+    lines.push("Content-Transfer-Encoding: base64");
+    lines.push(`Content-ID: <${img.cid}>`);
+    lines.push(`Content-Disposition: inline; filename="${safeName}"`);
+    lines.push("");
+    lines.push(wrap76(img.base64));
+  };
+  // Text + eingebettete Bilder als ein multipart/related-Block.
+  const emitRelated = (rel: string) => {
+    lines.push(`--${rel}`);
+    emitHtml();
+    for (const img of inlineImages) {
+      lines.push(`--${rel}`);
+      emitInline(img);
     }
-    lines.push(`--${boundary}--`);
+    lines.push(`--${rel}--`);
+  };
+
+  const hasInline = inlineImages.length > 0;
+  const hasAtt = attachments.length > 0;
+
+  if (!hasInline && !hasAtt) {
+    // Reine HTML-Mail (unverändert).
+    emitHtml();
+  } else if (!hasInline && hasAtt) {
+    // Text + Datei-Anhänge (unverändert): multipart/mixed.
+    const mixed = boundary();
+    lines.push(`Content-Type: multipart/mixed; boundary="${mixed}"`);
+    lines.push("");
+    lines.push(`--${mixed}`);
+    emitHtml();
+    for (const att of attachments) {
+      lines.push(`--${mixed}`);
+      emitAttachment(att);
+    }
+    lines.push(`--${mixed}--`);
+  } else if (hasInline && !hasAtt) {
+    // Text + eingebettete Bilder: multipart/related.
+    const rel = boundary("r");
+    lines.push(`Content-Type: multipart/related; boundary="${rel}"`);
+    lines.push("");
+    emitRelated(rel);
+  } else {
+    // Text + eingebettete Bilder + Datei-Anhänge: mixed[ related[html,bilder], anhänge ].
+    const mixed = boundary("m");
+    const rel = boundary("r");
+    lines.push(`Content-Type: multipart/mixed; boundary="${mixed}"`);
+    lines.push("");
+    lines.push(`--${mixed}`);
+    lines.push(`Content-Type: multipart/related; boundary="${rel}"`);
+    lines.push("");
+    emitRelated(rel);
+    for (const att of attachments) {
+      lines.push(`--${mixed}`);
+      emitAttachment(att);
+    }
+    lines.push(`--${mixed}--`);
   }
 
   const raw = lines.join("\r\n");

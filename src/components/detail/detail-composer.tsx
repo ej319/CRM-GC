@@ -22,6 +22,7 @@ interface DetailComposerProps {
   onSendEmail: (draft: EmailDraft) => Promise<boolean>;
   templates: EmailTemplate[];
   customerFields: TemplateCustomerFields;
+  signatureHtml: string;
 }
 
 function ComingSoon({ label }: { label: string }) {
@@ -43,6 +44,7 @@ export function DetailComposer({
   onSendEmail,
   templates,
   customerFields,
+  signatureHtml,
 }: DetailComposerProps) {
   const [body, setBody] = useState("");
   const [saving, setSaving] = useState(false);
@@ -106,6 +108,7 @@ export function DetailComposer({
               onSend={onSendEmail}
               templates={templates}
               customerFields={customerFields}
+              signatureHtml={signatureHtml}
             />
           </TabsContent>
           <TabsContent value="file">

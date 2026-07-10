@@ -1,10 +1,10 @@
 # PROJ-15: Bilder & Signatur in E-Mail-Vorlagen
 
-## Status: In Progress
+## Status: Deployed
 **Created:** 2026-07-08
-**Last Updated:** 2026-07-09
+**Last Updated:** 2026-07-10
 
-> **Stand 2026-07-09:** **Beide Phasen gebaut** (Signatur + Bilder im Vorlagentext) und lokal verifiziert: tsc sauber · Vitest **82/82** grün (13 neue Tests fürs Bild-Fundament, den Filter und den MIME-Bau) · `next build` inkl. neuer Routen `/einstellungen` und `/api/email/image/[key]`. **Der bestehende Versand bleibt unverändert, solange keine Bilder im Spiel sind** (rückwärtskompatibel, alte MIME-Tests grün). Code ist „inert", bis die Migration `supabase/migrations/proj15_signatur_bilder.sql` (Signatur-Tabelle + Bild-Bucket) auf die Live-DB angewandt ist — braucht Nutzer-Freigabe. Danach `/qa`/Live-Test.
+> **Stand 2026-07-10:** **Live auf https://crm-gc.vercel.app** (beide Phasen: Signatur + Bilder im Vorlagentext). Migration angewandt (Tabelle `user_signatures` mit Nutzer-eigener RLS, privater Bucket `email-images`; per SQL verifiziert, Advisor ohne neue Warnung). Verifiziert: tsc sauber · Vitest **82/82** · `next build` · Live-Routen-Checks (Einstellungen & Bild-Route login-geschützt, keine Regression). **Offen: manueller End-to-End-Test** (Signatur mit Logo anlegen → Mail senden → Logo im Empfänger-Postfach sichtbar).
 
 > **Kurzfassung:** Zwei zusammengehörige Bild-Funktionen für E-Mails, die sich dasselbe technische Fundament teilen (Bilder hochladen, optimieren und **fest in die Mail einbetten**, damit sie beim Empfänger — auch in Outlook — sofort sichtbar sind):
 > 1. **Persönliche Signatur** (pro Nutzer) mit Logo, die automatisch (abschaltbar) unten in jede Mail eingesetzt wird.
@@ -210,7 +210,14 @@ Vorlagen-Editor (aus PROJ-9)                                    [Phase 2]
 **Keine.** Browser-Bordmittel fürs Verkleinern, bestehendes `sanitize-html`, bestehender MIME-Bau reichen aus.
 
 ## QA Test Results
-_To be added by /qa_
+_Formaler /qa-Durchlauf ausstehend. Bisher verifiziert: Vitest 82/82 (13 neu: Bild-Fundament, Filter-Bildregeln, MIME-related), tsc sauber, `next build`, DB-Verifikation per SQL (Tabelle, RLS, Bucket, Policies), Sicherheits-Advisor ohne neue Warnung, Live-Routen-Checks. Rückwärtskompatibilität des Versands durch unveränderte MIME-Tests abgesichert. Ausstehend: authentifizierter End-to-End-Test (Signatur mit Logo → senden → Empfänger sieht Logo; Bild in Vorlage → senden)._
 
 ## Deployment
-_To be added by /deploy_
+
+### Deploy 2026-07-10
+- **Live:** https://crm-gc.vercel.app — Vercel-Projekt `ewgeni-s-projects/crm-gc`
+- **Datenbank:** Migrationen `proj15_user_signatures` + `proj15_email_images_bucket` angewandt (nach Nutzer-Freigabe). Verifiziert: Tabelle `user_signatures` (4 Policies, RLS je Nutzer), Bucket `email-images` (privat, 3 Policies). Advisor ohne neue Warnung.
+- **Keine neuen Umgebungs-Variablen** nötig.
+- **Post-Deploy-Checks (curl):** `/einstellungen` → 307 `/login`; private Bild-Route `/api/email/image/…` → 307 `/login` (nicht öffentlich); `/vorlagen` weiter geschützt; Tracking-Pixel weiter öffentlich (`200 image/gif`); `/login` 200 — keine Regression.
+- **Rückwärtskompatibilität:** Der bestehende Versand-Weg ist unverändert, solange keine Bilder im HTML sind (neuer `multipart/related`-Zweig greift nur bei eingebetteten Bildern; alte MIME-Tests unverändert grün).
+- **Offen:** manueller Smoke-Test durch den Nutzer (Signatur mit Logo anlegen, Mail an sich selbst senden, Logo-Anzeige im Empfänger-Postfach prüfen; optional ein Bild in einer Vorlage).

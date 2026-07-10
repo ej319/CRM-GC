@@ -29,7 +29,7 @@
 | PROJ-12 | Auswertungen/Dashboard | P2 | PROJ-2 | Roadmap | | |
 | PROJ-13 | Dateien/Angebote anhängen | P2 | PROJ-2 | Roadmap | | |
 | PROJ-14 | In-App-Hilfe & Feedback/Ticket-System (Nutzer/Mitarbeiter melden Fehler & Ideen; Claude triagiert als Support und setzt als Entwickler um) | P1 | PROJ-1 | Roadmap | | 2026-06-25 |
-| PROJ-15 | Bilder/Signatur in E-Mail-Vorlagen | P2 | PROJ-9 | In Progress | PROJ-15-bilder-signatur-email-vorlagen.md | 2026-07-08 |
+| PROJ-15 | Bilder/Signatur in E-Mail-Vorlagen | P2 | PROJ-9 | Deployed | PROJ-15-bilder-signatur-email-vorlagen.md | 2026-07-08 |
 
 ## Recommended Build Order
 PROJ-1 → PROJ-2 → PROJ-3 → PROJ-4 (inkl. Notizen/PROJ-6) → PROJ-5 → PROJ-8 → PROJ-7 → PROJ-9 → PROJ-10 → PROJ-11 → PROJ-12 → PROJ-13

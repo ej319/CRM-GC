@@ -26,6 +26,7 @@ import {
   type RichTextEditorHandle,
 } from "@/components/detail/rich-text-editor";
 import { EditorImageButton } from "@/components/detail/editor-image-button";
+import { uploadForEditor } from "@/components/detail/editor-image";
 import { createClient } from "@/lib/supabase/client";
 import {
   TEMPLATE_PLACEHOLDERS,
@@ -229,6 +230,7 @@ export function TemplateEditorDialog({ open, onOpenChange, initial, onSaved }: P
               onChange={setBody}
               onFocus={() => (lastFocus.current = "body")}
               placeholder="Vorlagentext schreiben …"
+              uploadImage={uploadForEditor}
               toolbarExtra={
                 <EditorImageButton
                   onInsert={(url) =>

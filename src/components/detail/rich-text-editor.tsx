@@ -30,6 +30,12 @@ interface RichTextEditorProps {
   toolbarExtra?: ReactNode;
   /** Wird gemeldet, wenn der Textbereich den Fokus erhält. */
   onFocus?: () => void;
+  /**
+   * Lädt ein eingefügtes (kopiertes) Bild als eigenes Bild hoch und liefert die
+   * App-Bildadresse zurück (oder null bei Fehler). Ist dies gesetzt, werden
+   * per Strg+V eingefügte Bilder automatisch übernommen.
+   */
+  uploadImage?: (file: File) => Promise<string | null>;
 }
 
 /** Prüft, ob der Editor (HTML) inhaltlich leer ist – für die Platzhalter-Anzeige. */
@@ -49,7 +55,7 @@ function isEmptyHtml(html: string): boolean {
  */
 export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
   function RichTextEditor(
-    { value, onChange, placeholder, className, toolbarExtra, onFocus },
+    { value, onChange, placeholder, className, toolbarExtra, onFocus, uploadImage },
     handleRef,
   ) {
     const ref = useRef<HTMLDivElement>(null);
@@ -76,6 +82,27 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     function handleInput() {
       const el = ref.current;
       if (el) onChange(el.innerHTML);
+    }
+
+    // Eingefügtes (kopiertes) Bild automatisch als eigenes Bild hochladen und
+    // einbetten – so bleibt es beim Speichern erhalten und wird sicher verschickt.
+    async function handlePaste(e: React.ClipboardEvent<HTMLDivElement>) {
+      if (!uploadImage) return; // ohne Uploader: normales Einfügen
+      const items = Array.from(e.clipboardData?.items ?? []);
+      const imageItem = items.find(
+        (it) => it.kind === "file" && it.type.startsWith("image/"),
+      );
+      if (!imageItem) return; // kein Bild → Text/HTML normal einfügen
+      const file = imageItem.getAsFile();
+      if (!file) return;
+      e.preventDefault(); // fremdes Bild NICHT direkt einfügen
+      const url = await uploadImage(file);
+      const el = ref.current;
+      if (url && el) {
+        el.focus();
+        document.execCommand("insertHTML", false, `<img src="${url}" alt="" />`);
+        onChange(el.innerHTML);
+      }
     }
 
     // Text bzw. HTML (z. B. Bild) an der aktuellen Cursor-Position einfügen.
@@ -133,7 +160,8 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
             aria-label="Nachrichtentext"
             onInput={handleInput}
             onFocus={onFocus}
-            className="min-h-40 w-full px-3 py-2 text-sm focus-visible:outline-none [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
+            onPaste={handlePaste}
+            className="min-h-40 w-full px-3 py-2 text-sm focus-visible:outline-none [&_img]:max-w-full [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
           />
           {placeholder && isEmptyHtml(value) ? (
             <p className="pointer-events-none absolute left-3 top-2 text-sm text-muted-foreground">

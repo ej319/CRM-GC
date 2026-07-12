@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { RichTextEditor } from "@/components/detail/rich-text-editor";
+import { uploadForEditor } from "@/components/detail/editor-image";
 import { createClient } from "@/lib/supabase/client";
 import {
   fillPlaceholders,
@@ -285,6 +286,7 @@ export function EmailComposer({
           value={body}
           onChange={setBody}
           placeholder="Nachricht schreiben …"
+          uploadImage={uploadForEditor}
         />
       </div>
 

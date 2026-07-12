@@ -10,6 +10,7 @@ import {
   type RichTextEditorHandle,
 } from "@/components/detail/rich-text-editor";
 import { EditorImageButton } from "@/components/detail/editor-image-button";
+import { uploadForEditor } from "@/components/detail/editor-image";
 import { saveSignature } from "@/lib/signature/actions";
 
 export function SignatureEditor({ initialHtml }: { initialHtml: string }) {
@@ -43,7 +44,8 @@ export function SignatureEditor({ initialHtml }: { initialHtml: string }) {
           ref={editorRef}
           value={body}
           onChange={setBody}
-          placeholder="Name, Firma, Kontakt … – und über das Bild-Symbol dein Logo"
+          placeholder="Name, Firma, Kontakt … – Logo über das Bild-Symbol oder per Einfügen (Strg+V)"
+          uploadImage={uploadForEditor}
           toolbarExtra={
             <EditorImageButton
               onInsert={(url) =>

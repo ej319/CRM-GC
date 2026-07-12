@@ -1,10 +1,10 @@
 # PROJ-13: Dateien/Angebote anhängen
 
-## Status: In Progress
+## Status: Deployed
 **Created:** 2026-07-12
 **Last Updated:** 2026-07-12
 
-> **Stand 2026-07-12:** Frontend + Backend gebaut, DB-Migration live angewandt (Tabelle `customer_files` + privater Bucket `customer-files`, per SQL verifiziert). Verifiziert: tsc sauber · Vitest **91/91** (7 neue für `buildFileEntries`/`formatFileSize`) · `next build`. Es folgt Deploy + Live-Check.
+> **Stand 2026-07-12:** **Live auf https://crm-gc.vercel.app.** DB-Migration angewandt (Tabelle `customer_files` + privater Bucket `customer-files`; per SQL verifiziert inkl. Anlegen/Löschen-Round-Trip). tsc sauber · Vitest **91/91** · `next build` · Live-Routen-Checks (Kundenakte login-geschützt). **Offen: manueller End-to-End-Test** (Datei hochladen → in Übersicht/Verlauf sehen → herunterladen → an E-Mail anhängen).
 
 ## Implementation Notes
 
@@ -171,7 +171,13 @@ Die Kundenakte lädt die E-Mails des Kunden ohnehin schon inklusive ihrer Anhän
 **Keine.**
 
 ## QA Test Results
-_To be added by /qa_
+_Formaler /qa-Durchlauf ausstehend. Bisher verifiziert: Vitest 91/91 (7 neu: `buildFileEntries`, `formatFileSize`), tsc sauber, `next build`, DB-Round-Trip (Anlegen/Lesen/Löschen), Live-Routen-Checks. Ausstehend: authentifizierter End-to-End-Test (Upload, Übersicht inkl. E-Mail-Anhänge, Download, „Aus Dateien" an E-Mail anhängen)._
 
 ## Deployment
-_To be added by /deploy_
+
+### Deploy 2026-07-12
+- **Live:** https://crm-gc.vercel.app — Vercel-Projekt `ewgeni-s-projects/crm-gc`
+- **Datenbank:** Migrationen `proj13_customer_files` + `proj13_customer_files_bucket` angewandt. Verifiziert: Tabelle `customer_files` (4 Policies, Team-RLS), privater Bucket `customer-files` (3 Policies), Anlegen/Löschen-Round-Trip erfolgreich.
+- **Keine neuen Umgebungs-Variablen** nötig.
+- **Post-Deploy-Checks (curl):** Kundenakte ohne Login → 307 `/login`; `/login` 200 — keine Regression.
+- **Offen:** manueller Smoke-Test durch den Nutzer (Datei hochladen, in Übersicht/Verlauf sehen, herunterladen, an eine E-Mail anhängen).

@@ -28,6 +28,11 @@ describe("extractImagePaths", () => {
     expect(extractImagePaths(html)).toEqual([]);
   });
 
+  it("findet auch absolute eigene Bild-Adressen", () => {
+    const html = `<img src="https://crm-gc.vercel.app/api/email/image/x%2Fa.png">`;
+    expect(extractImagePaths(html)).toEqual(["x/a.png"]);
+  });
+
   it("liefert leere Liste ohne Bilder", () => {
     expect(extractImagePaths("<p>nur Text</p>")).toEqual([]);
   });
@@ -43,6 +48,12 @@ describe("rewriteImagesToCid", () => {
   it("lässt unbekannte Pfade unverändert", () => {
     const html = `<img src="/api/email/image/unbekannt.png">`;
     expect(rewriteImagesToCid(html, new Map())).toBe(html);
+  });
+
+  it("ersetzt auch absolute eigene Bild-Adressen komplett durch cid", () => {
+    const html = `<img src="https://crm-gc.vercel.app/api/email/image/x%2Fa.png">`;
+    const map = new Map([["x/a.png", "img9@crm"]]);
+    expect(rewriteImagesToCid(html, map)).toBe(`<img src="cid:img9@crm">`);
   });
 });
 

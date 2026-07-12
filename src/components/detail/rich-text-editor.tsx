@@ -5,9 +5,10 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
+  useState,
   type ReactNode,
 } from "react";
-import { Bold, Italic, List, ListOrdered } from "lucide-react";
+import { Bold, Italic, List, ListOrdered, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -59,6 +60,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     handleRef,
   ) {
     const ref = useRef<HTMLDivElement>(null);
+    const [pasting, setPasting] = useState(false);
 
     // Externe Wertänderungen (z. B. Zurücksetzen nach dem Senden) übernehmen,
     // ohne beim Tippen den Cursor zu verschieben: Beim Tippen ist value === innerHTML,
@@ -96,13 +98,39 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       const file = imageItem.getAsFile();
       if (!file) return;
       e.preventDefault(); // fremdes Bild NICHT direkt einfügen
-      const url = await uploadImage(file);
+
       const el = ref.current;
-      if (url && el) {
-        el.focus();
-        document.execCommand("insertHTML", false, `<img src="${url}" alt="" />`);
-        onChange(el.innerHTML);
+      if (!el) return;
+
+      // Cursor-Position jetzt (synchron) merken – nach dem Hochladen ist sie evtl. weg.
+      const sel = window.getSelection();
+      let savedRange: Range | null = null;
+      if (sel && sel.rangeCount > 0) {
+        const r = sel.getRangeAt(0);
+        if (el.contains(r.commonAncestorContainer)) savedRange = r.cloneRange();
       }
+
+      setPasting(true);
+      const url = await uploadImage(file);
+      setPasting(false);
+      if (!url) return;
+
+      // Bild als echtes Element an der gemerkten Stelle einsetzen (unabhängig
+      // vom Fokus). Ohne gemerkte Stelle ans Ende hängen.
+      const img = document.createElement("img");
+      img.setAttribute("src", url);
+      img.setAttribute("alt", "");
+      if (savedRange) {
+        savedRange.deleteContents();
+        savedRange.insertNode(img);
+        savedRange.setStartAfter(img);
+        savedRange.collapse(true);
+        sel?.removeAllRanges();
+        sel?.addRange(savedRange);
+      } else {
+        el.appendChild(img);
+      }
+      onChange(el.innerHTML);
     }
 
     // Text bzw. HTML (z. B. Bild) an der aktuellen Cursor-Position einfügen.
@@ -167,6 +195,11 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
             <p className="pointer-events-none absolute left-3 top-2 text-sm text-muted-foreground">
               {placeholder}
             </p>
+          ) : null}
+          {pasting ? (
+            <div className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded bg-background/80 px-2 py-1 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" /> Bild wird eingefügt …
+            </div>
           ) : null}
         </div>
       </div>

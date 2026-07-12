@@ -12,8 +12,9 @@ export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif"];
 export const MAX_IMAGE_WIDTH = 1000;
 export const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // ~2 MB
 
-// Findet den Speicherpfad-Teil in einem <img src="/api/email/image/<enc>">.
-const IMG_SRC_RE = /\/api\/email\/image\/([^"'\s)>]+)/g;
+// Findet Bild-Verweise auf die eigene Route – relativ ODER als vollständige
+// Adresse (manche Editoren speichern src als absolute URL). Gruppe 1 = Pfad.
+const IMG_SRC_RE = /(?:https?:\/\/[^/"'\s>]+)?\/api\/email\/image\/([^"'\s)>]+)/g;
 
 /** App-Adresse für ein im privaten Bucket liegendes Bild (Pfad wird kodiert). */
 export function imageUrl(storagePath: string): string {

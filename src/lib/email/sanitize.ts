@@ -7,7 +7,15 @@ import sanitizeHtml from "sanitize-html";
 // Einbetten im Versand – ein Mail-interner cid-Verweis. Fremde/fehlende Quellen
 // (andere URLs, data:, javascript:) werden verworfen.
 function isOwnImageSrc(src: string): boolean {
-  return src.startsWith("/api/email/image/") || src.startsWith("cid:");
+  if (src.startsWith("cid:")) return true;
+  if (src.startsWith("/api/email/image/")) return true;
+  // Auch vollständige Adressen auf die eigene Bild-Route zulassen (manche
+  // Editoren speichern src absolut, z. B. https://…/api/email/image/…).
+  try {
+    return new URL(src).pathname.startsWith("/api/email/image/");
+  } catch {
+    return false;
+  }
 }
 
 const OPTIONS: sanitizeHtml.IOptions = {

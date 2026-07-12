@@ -53,6 +53,12 @@ describe("sanitizeEmailHtml", () => {
 
     const cid = sanitizeEmailHtml('<img src="cid:img1@crm">');
     expect(cid).toContain('src="cid:img1@crm"');
+
+    // Absolute eigene Bild-Adresse bleibt ebenfalls erhalten.
+    const abs = sanitizeEmailHtml(
+      '<img src="https://crm-gc.vercel.app/api/email/image/x%2Fa.png">',
+    );
+    expect(abs).toContain("/api/email/image/x%2Fa.png");
   });
 
   it("entfernt fremde Bilder und data:-Bilder", () => {

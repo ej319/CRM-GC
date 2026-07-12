@@ -2,7 +2,9 @@
 
 ## Status: Deployed
 **Created:** 2026-07-08
-**Last Updated:** 2026-07-10
+**Last Updated:** 2026-07-12
+
+> **Offen / geparkt (2026-07-12):** Logo/Bild in der Signatur klappt beim Nutzer noch nicht end-to-end. Belegt per DB: Text-Signatur speichert/versendet einwandfrei; ein Bild wurde bisher nur **einmal** hochgeladen (11:03, `logo.gif`) und landete nicht im gespeicherten Signatur-HTML. Vermutete Hauptursache: Nutzer fügt ein **aus Gmail kopiertes Bild** ein (Strg+V), das **keine echte Bilddatei** in der Zwischenablage enthält → kein Upload. Umgesetzte Verbesserungen (live): Paste-to-Upload, robuste DOM-Einfügung mit gemerkter Cursor-Position (`lastRange`) für Bild-Knopf/Platzhalter/Paste, absolute Bildadressen im Filter/Helfer erlaubt, `image/*`-Auswahl, sichtbare Upload-Toasts, prominenter Knopf **„Logo / Bild einfügen"** (Nutzer bestätigt: Knopf ist sichtbar → neue Version wird ausgeliefert). **Nächster Schritt beim Wiederaufgreifen:** Nutzer den Knopf „Logo / Bild einfügen" mit einer **Datei** (nicht Kopieren) nutzen lassen und die erscheinende Toast-Meldung auswerten (lokalisiert die Stelle eindeutig). Vom Nutzer bewusst vorerst zurückgestellt.
 
 > **Stand 2026-07-10:** **Live auf https://crm-gc.vercel.app** (beide Phasen: Signatur + Bilder im Vorlagentext). Migration angewandt (Tabelle `user_signatures` mit Nutzer-eigener RLS, privater Bucket `email-images`; per SQL verifiziert, Advisor ohne neue Warnung). Verifiziert: tsc sauber · Vitest **82/82** · `next build` · Live-Routen-Checks (Einstellungen & Bild-Route login-geschützt, keine Regression). **Offen: manueller End-to-End-Test** (Signatur mit Logo anlegen → Mail senden → Logo im Empfänger-Postfach sichtbar).
 

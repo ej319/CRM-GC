@@ -60,6 +60,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     handleRef,
   ) {
     const ref = useRef<HTMLDivElement>(null);
+    const lastRange = useRef<Range | null>(null);
     const [pasting, setPasting] = useState(false);
 
     // Externe Wertänderungen (z. B. Zurücksetzen nach dem Senden) übernehmen,
@@ -86,6 +87,51 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       if (el) onChange(el.innerHTML);
     }
 
+    // Liefert den aktuellen Auswahlbereich, wenn er im Editor liegt.
+    function currentRangeInEl(): Range | null {
+      const el = ref.current;
+      const sel = window.getSelection();
+      if (el && sel && sel.rangeCount > 0) {
+        const r = sel.getRangeAt(0);
+        if (el.contains(r.commonAncestorContainer)) return r;
+      }
+      return null;
+    }
+
+    // Merkt sich die letzte Cursor-Position im Editor – auch bevor der Fokus
+    // durch einen Klick auf Werkzeug-Knopf/Bild-Auswahl verloren geht.
+    function saveSelection() {
+      const r = currentRangeInEl();
+      if (r) lastRange.current = r.cloneRange();
+    }
+
+    // Fügt einen Knoten an der aktuellen bzw. zuletzt gemerkten Stelle ein
+    // (unabhängig vom Fokus). Ohne gültige Stelle: ans Ende hängen.
+    function insertNodeAtCaret(node: Node) {
+      const el = ref.current;
+      if (!el) return;
+      const range = currentRangeInEl() ?? lastRange.current;
+      if (range && el.contains(range.commonAncestorContainer)) {
+        range.deleteContents();
+        range.insertNode(node);
+        range.setStartAfter(node);
+        range.collapse(true);
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+        lastRange.current = range.cloneRange();
+      } else {
+        el.appendChild(node);
+      }
+      onChange(el.innerHTML);
+    }
+
+    function htmlToFragment(html: string): DocumentFragment {
+      const tpl = document.createElement("template");
+      tpl.innerHTML = html;
+      return tpl.content;
+    }
+
     // Eingefügtes (kopiertes) Bild automatisch als eigenes Bild hochladen und
     // einbetten – so bleibt es beim Speichern erhalten und wird sicher verschickt.
     async function handlePaste(e: React.ClipboardEvent<HTMLDivElement>) {
@@ -99,55 +145,25 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       if (!file) return;
       e.preventDefault(); // fremdes Bild NICHT direkt einfügen
 
-      const el = ref.current;
-      if (!el) return;
-
-      // Cursor-Position jetzt (synchron) merken – nach dem Hochladen ist sie evtl. weg.
-      const sel = window.getSelection();
-      let savedRange: Range | null = null;
-      if (sel && sel.rangeCount > 0) {
-        const r = sel.getRangeAt(0);
-        if (el.contains(r.commonAncestorContainer)) savedRange = r.cloneRange();
-      }
-
+      saveSelection(); // Cursor-Position jetzt merken
       setPasting(true);
       const url = await uploadImage(file);
       setPasting(false);
       if (!url) return;
 
-      // Bild als echtes Element an der gemerkten Stelle einsetzen (unabhängig
-      // vom Fokus). Ohne gemerkte Stelle ans Ende hängen.
       const img = document.createElement("img");
       img.setAttribute("src", url);
       img.setAttribute("alt", "");
-      if (savedRange) {
-        savedRange.deleteContents();
-        savedRange.insertNode(img);
-        savedRange.setStartAfter(img);
-        savedRange.collapse(true);
-        sel?.removeAllRanges();
-        sel?.addRange(savedRange);
-      } else {
-        el.appendChild(img);
-      }
-      onChange(el.innerHTML);
+      insertNodeAtCaret(img);
     }
 
-    // Text bzw. HTML (z. B. Bild) an der aktuellen Cursor-Position einfügen.
+    // Text bzw. HTML (z. B. Bild) an der zuletzt gemerkten Cursor-Position einfügen.
     useImperativeHandle(handleRef, () => ({
       insertText(text: string) {
-        const el = ref.current;
-        if (!el) return;
-        el.focus();
-        document.execCommand("insertText", false, text);
-        onChange(el.innerHTML);
+        insertNodeAtCaret(document.createTextNode(text));
       },
       insertHtml(html: string) {
-        const el = ref.current;
-        if (!el) return;
-        el.focus();
-        document.execCommand("insertHTML", false, html);
-        onChange(el.innerHTML);
+        insertNodeAtCaret(htmlToFragment(html));
       },
     }));
 
@@ -189,6 +205,9 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
             onInput={handleInput}
             onFocus={onFocus}
             onPaste={handlePaste}
+            onKeyUp={saveSelection}
+            onMouseUp={saveSelection}
+            onBlur={saveSelection}
             className="min-h-40 w-full px-3 py-2 text-sm focus-visible:outline-none [&_img]:max-w-full [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
           />
           {placeholder && isEmptyHtml(value) ? (

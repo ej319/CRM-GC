@@ -28,7 +28,7 @@ Zunächst der Geschäftsführer der G+C Facility GmbH als alleiniger Vertriebsnu
 | P1 | Pipeline-Automatik-Regeln | Roadmap |
 | P2 | Erinnerungen/Benachrichtigungen für Aktivitäten | Roadmap |
 | P2 | Auswertungen/Dashboard | Roadmap |
-| P2 | Dateien/Angebote anhängen | Roadmap |
+| P2 | Dateien/Angebote anhängen | Planned |
 
 ## Success Metrics
 - Bestehende Pipedrive-Daten lassen sich per Excel-Import vollständig übernehmen.

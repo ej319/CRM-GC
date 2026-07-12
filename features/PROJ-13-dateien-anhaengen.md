@@ -1,6 +1,6 @@
 # PROJ-13: Dateien/Angebote anhängen
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-07-12
 **Last Updated:** 2026-07-12
 
@@ -79,8 +79,8 @@
 - Upload/Übersicht fühlen sich flüssig an; große Listen bleiben bedienbar (Limit auf Abfragen).
 
 ## Open Questions
-- [ ] Soll die **Beschreibung nachträglich editierbar** sein, oder nur beim Hochladen setzbar? (Empfehlung: nachträglich editierbar — klein und praktisch; in /architecture bestätigen.)
-- [ ] **Sortierung/Filter** der Übersicht (nur „neueste zuerst" vs. nach Typ/Herkunft filtern)? (Empfehlung: für MVP „neueste zuerst", optionaler Herkunft-Hinweis pro Zeile.)
+- [x] Beschreibung nachträglich editierbar? → **Ja** (gelöst in /architecture): kleine Server-Aktion zum Ändern der Beschreibung einer eigenen Datei.
+- [x] Sortierung/Filter? → **MVP: „neueste zuerst"**, Herkunft je Zeile gekennzeichnet („aus E-Mail"); keine zusätzlichen Filter.
 
 ## Decision Log
 
@@ -99,12 +99,63 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Neue Tabelle `customer_files` + eigener privater Bucket `customer-files` | Sauber getrennt von E-Mail-Anhängen; Team-RLS wie `notes` | 2026-07-12 |
+| Download über kurzlebige **signierte Links** (wie E-Mail-Anhänge) | Bestehendes, erprobtes Muster (`createSignedUrl`); privat, kein öffentlicher Link | 2026-07-12 |
+| Gesamtübersicht = `customer_files` **+** die Anhänge der bereits geladenen E-Mails, im Browser zusammengeführt | Kein zweiter Server-Umweg; die Kundenakte lädt E-Mails inkl. Anhänge ohnehin | 2026-07-12 |
+| „Aus abgelegten Dateien wählen": ausgewählte Datei wird in den `email-attachments`-Bucket **kopiert** | Mail bekommt eigene, unabhängige Kopie (wie Vorlagen-Anhänge in PROJ-9) | 2026-07-12 |
+| Server-Aktionen mit Zod, wie Notizen/Vorlagen | Konsistenz, Pflicht-/Größenprüfung serverseitig | 2026-07-12 |
+| Keine neue Bibliothek | shadcn-Bausteine + bestehende Storage-/Upload-Mechanik reichen | 2026-07-12 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick in einem Satz
+PROJ-13 legt Kundendateien in einer neuen Tabelle + eigenem privaten Speicher-Bereich ab, zeigt im Verlauf eine **zusammengeführte Übersicht** aus eigenen Uploads und E-Mail-Anhängen und erlaubt, eine abgelegte Datei beim Mailschreiben als Anhang zu übernehmen.
+
+### A) Was der Nutzer sieht (Baumstruktur)
+
+```
+Kundenakte → Anlege-Leiste
+└── Reiter „Datei" (ersetzt Platzhalter)
+    ├── Datei(en) auswählen  +  optionale Beschreibung
+    └── Hochladen (mit Ladeanzeige)
+
+Kundenakte → Verlauf
+└── Filter „Dateien" (ersetzt Platzhalter)
+    └── Liste (neueste zuerst):
+        ├── eigene Datei: Name · Beschreibung · Größe · Datum · [Herunterladen] [Löschen]
+        └── E-Mail-Anhang: Name · Größe · „aus E-Mail: Betreff, Datum" · [Herunterladen]
+
+E-Mail-Schreibfenster
+└── NEU: „Aus abgelegten Dateien wählen" → Liste der Kundendateien → als Anhang übernehmen
+```
+
+### B) Welche Informationen gespeichert werden (in einfachen Worten)
+
+**Neue Tabelle „Kundendateien":** Kennung, Kunde, Dateiname, optionale Beschreibung, Größe, Typ, Speicherort, wer hochgeladen hat, Zeitpunkt. Wird der Kunde gelöscht, verschwinden seine Dateien automatisch mit.
+
+**Neuer privater Speicher-Bereich „customer-files":** nur für angemeldete Nutzer; keine öffentlichen Links.
+
+**E-Mail-Anhänge** bleiben unverändert dort, wo sie sind (bei der E-Mail) — sie werden in der Übersicht nur **mitangezeigt**, nicht kopiert oder verschoben.
+
+### C) Wie die Übersicht entsteht (einfach erklärt)
+Die Kundenakte lädt die E-Mails des Kunden ohnehin schon inklusive ihrer Anhänge. Für die „Dateien"-Übersicht werden diese Anhänge mit den selbst hochgeladenen Dateien **im Browser zu einer Liste zusammengeführt** und nach Datum sortiert. Jede Zeile zeigt klar, woher sie stammt. Kein zusätzlicher Server-Abruf nötig.
+
+### D) Was neu gebaut wird (Entwickler-Sicht, knapp)
+- **Datenschicht** `src/lib/files/` (Typen, Query `getCustomerFiles`, Server-Aktionen: hochladen-Eintrag anlegen, Beschreibung ändern, löschen inkl. Storage-Datei, und „Kundendatei → E-Mail-Anhang kopieren").
+- **Datei-Reiter**: Upload (Browser → Bucket) + Beschreibung, im bestehenden `DetailComposer`.
+- **Verlauf „Dateien"**: zusammengeführte Liste (eigene Dateien + E-Mail-Anhänge), Download per signiertem Link, Löschen nur für eigene Dateien.
+- **Composer**: „Aus abgelegten Dateien wählen" (Auswahl-Dialog) → Kopie in `email-attachments`.
+- **Datenbank-Migration**: Tabelle + Bucket + Team-RLS-Policies.
+
+### E) Sicherheit
+- Login-Pflicht überall; Team-RLS wie bei Notizen; privater Bucket, Download nur über kurzlebige signierte Links.
+- Dateien werden **nie** ausgeführt oder inline gerendert — nur gespeichert und heruntergeladen.
+
+### F) Zusätzliche Pakete
+**Keine.**
 
 ## QA Test Results
 _To be added by /qa_

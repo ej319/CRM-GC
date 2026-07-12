@@ -27,7 +27,7 @@
 | PROJ-10 | Pipeline-Automatik-Regeln | P1 | PROJ-2, PROJ-5, PROJ-7 | Roadmap | | |
 | PROJ-11 | Erinnerungen/Benachrichtigungen für Aktivitäten | P2 | PROJ-5 | Roadmap | | |
 | PROJ-12 | Auswertungen/Dashboard | P2 | PROJ-2 | Roadmap | | |
-| PROJ-13 | Dateien/Angebote anhängen | P2 | PROJ-2, PROJ-4, PROJ-7 | Architected | PROJ-13-dateien-anhaengen.md | 2026-07-12 |
+| PROJ-13 | Dateien/Angebote anhängen | P2 | PROJ-2, PROJ-4, PROJ-7 | In Progress | PROJ-13-dateien-anhaengen.md | 2026-07-12 |
 | PROJ-14 | In-App-Hilfe & Feedback/Ticket-System (Nutzer/Mitarbeiter melden Fehler & Ideen; Claude triagiert als Support und setzt als Entwickler um) | P1 | PROJ-1 | Roadmap | | 2026-06-25 |
 | PROJ-15 | Bilder/Signatur in E-Mail-Vorlagen | P2 | PROJ-9 | Deployed | PROJ-15-bilder-signatur-email-vorlagen.md | 2026-07-08 |
 

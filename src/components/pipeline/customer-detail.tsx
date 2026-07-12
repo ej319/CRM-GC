@@ -34,11 +34,13 @@ import {
 } from "@/lib/activities/actions";
 import { focusActivity, type Activity } from "@/lib/activities/data";
 import { sendEmail } from "@/lib/email/actions";
+import { deleteCustomerFile } from "@/lib/files/actions";
 import type { Email } from "@/lib/email/data";
 import type { EmailDraft } from "@/components/detail/email-composer";
 import type { Customer } from "@/lib/pipeline/data";
 import type { Note } from "@/lib/notes/data";
 import type { EmailTemplate, TemplateCustomerFields } from "@/lib/templates/data";
+import { buildFileEntries, type CustomerFile, type FileEntry } from "@/lib/files/data";
 
 function plusDays(n: number): string {
   const d = new Date();
@@ -58,6 +60,7 @@ export function CustomerDetail({
   gmailEmail,
   templates,
   signatureHtml,
+  initialFiles,
 }: {
   customer: Customer | null;
   initialNotes: Note[];
@@ -67,6 +70,7 @@ export function CustomerDetail({
   gmailEmail?: string;
   templates: EmailTemplate[];
   signatureHtml: string;
+  initialFiles: CustomerFile[];
 }) {
   if (!customer) {
     return (
@@ -90,6 +94,7 @@ export function CustomerDetail({
       gmailEmail={gmailEmail}
       templates={templates}
       signatureHtml={signatureHtml}
+      initialFiles={initialFiles}
     />
   );
 }
@@ -103,6 +108,7 @@ function CustomerDetailView({
   gmailEmail,
   templates,
   signatureHtml,
+  initialFiles,
 }: {
   customer: Customer;
   initialNotes: Note[];
@@ -112,12 +118,29 @@ function CustomerDetailView({
   gmailEmail?: string;
   templates: EmailTemplate[];
   signatureHtml: string;
+  initialFiles: CustomerFile[];
 }) {
   const [deleting, setDeleting] = useState(false);
   const [notes, setNotes] = useState<Note[]>(initialNotes);
   const [activities, setActivities] = useState<Activity[]>(initialActivities);
   const [emails, setEmails] = useState<Email[]>(initialEmails);
+  const [files, setFiles] = useState<CustomerFile[]>(initialFiles);
   const [planNextOpen, setPlanNextOpen] = useState(false);
+
+  // --- Dateien ---
+  function addFile(file: CustomerFile) {
+    setFiles((prev) => [file, ...prev]);
+  }
+  async function removeFile(entry: FileEntry) {
+    if (!entry.canDelete) return;
+    const id = entry.key.replace(/^file:/, "");
+    const res = await deleteCustomerFile(id, entry.storagePath);
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    setFiles((prev) => prev.filter((f) => f.id !== id));
+  }
 
   // --- Notizen ---
   async function addNote(body: string): Promise<boolean> {
@@ -221,6 +244,8 @@ function CustomerDetailView({
     category: customer.category,
   };
 
+  const fileEntries = buildFileEntries(files, emails);
+
   return (
     <div className="mx-auto max-w-6xl">
       <div className="mb-4 flex items-center justify-between">
@@ -270,6 +295,8 @@ function CustomerDetailView({
             templates={templates}
             customerFields={customerFields}
             signatureHtml={signatureHtml}
+            customerFiles={files}
+            onFileAdded={addFile}
           />
 
           <Card className={focus ? undefined : "border-dashed"}>
@@ -301,6 +328,8 @@ function CustomerDetailView({
             onEditActivity={editActivity}
             onDeleteActivity={deleteActivity}
             emails={emails}
+            fileEntries={fileEntries}
+            onDeleteFile={removeFile}
           />
         </div>
       </div>

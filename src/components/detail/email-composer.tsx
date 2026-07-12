@@ -34,6 +34,8 @@ import {
   type TemplateCustomerFields,
 } from "@/lib/templates/data";
 import { instantiateTemplateAttachments } from "@/lib/templates/actions";
+import { attachFileToEmail } from "@/lib/files/actions";
+import type { CustomerFile } from "@/lib/files/data";
 
 export interface EmailAttachmentRef {
   path: string;
@@ -62,6 +64,8 @@ interface EmailComposerProps {
   customerFields: TemplateCustomerFields;
   /** Persönliche Signatur (HTML, bereits bereinigt) – leer, wenn keine angelegt. */
   signatureHtml: string;
+  /** Beim Kunden abgelegte Dateien (zum direkten Anhängen). */
+  customerFiles: CustomerFile[];
 }
 
 /** Prüft, ob der HTML-Text inhaltlich leer ist. */
@@ -85,6 +89,7 @@ export function EmailComposer({
   templates,
   customerFields,
   signatureHtml,
+  customerFiles,
 }: EmailComposerProps) {
   const [to, setTo] = useState(customerEmail ?? "");
   const [cc, setCc] = useState("");
@@ -97,6 +102,7 @@ export function EmailComposer({
   // Vorlage, für die noch die „Ersetzen?"-Rückfrage offen ist.
   const [pendingTemplate, setPendingTemplate] = useState<EmailTemplate | null>(null);
   const [applyingTemplate, setApplyingTemplate] = useState(false);
+  const [attachingFile, setAttachingFile] = useState(false);
   // Signatur standardmäßig anhängen, wenn eine hinterlegt ist.
   const [signatureOn, setSignatureOn] = useState(Boolean(signatureHtml));
 
@@ -178,6 +184,18 @@ export function EmailComposer({
         setAttachments((prev) => [...prev, ...res.data]);
       }
     }
+  }
+
+  // Abgelegte Kundendatei als Anhang übernehmen (eigene Kopie).
+  async function chooseStoredFile(file: CustomerFile) {
+    setAttachingFile(true);
+    const res = await attachFileToEmail(file.storagePath, file.fileName, file.contentType);
+    setAttachingFile(false);
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    setAttachments((prev) => [...prev, res.data]);
   }
 
   async function handleSend() {
@@ -337,22 +355,47 @@ export function EmailComposer({
       ) : null}
 
       <div className="flex items-center justify-between">
-        <Button asChild variant="outline" size="sm" disabled={uploading}>
-          <label className="cursor-pointer">
-            {uploading ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : (
-              <Paperclip className="mr-1.5 h-4 w-4" />
-            )}
-            Anhang
-            <input
-              type="file"
-              multiple
-              className="hidden"
-              onChange={(e) => addFiles(e.target.files)}
-            />
-          </label>
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button asChild variant="outline" size="sm" disabled={uploading}>
+            <label className="cursor-pointer">
+              {uploading ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : (
+                <Paperclip className="mr-1.5 h-4 w-4" />
+              )}
+              Anhang
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => addFiles(e.target.files)}
+              />
+            </label>
+          </Button>
+          {customerFiles.length > 0 ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" size="sm" disabled={attachingFile}>
+                  {attachingFile ? (
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileText className="mr-1.5 h-4 w-4" />
+                  )}
+                  Aus Dateien
+                  <ChevronDown className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
+                {customerFiles.map((f) => (
+                  <DropdownMenuItem key={f.id} onSelect={() => chooseStoredFile(f)}>
+                    <Paperclip className="mr-2 h-4 w-4 text-muted-foreground" />
+                    <span className="truncate">{f.fileName}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+        </div>
         <Button onClick={handleSend} disabled={!to.trim() || sending || uploading}>
           {sending ? "Senden …" : "Senden"}
         </Button>

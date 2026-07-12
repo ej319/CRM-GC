@@ -10,7 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { todayInBerlin } from "@/lib/activities/data";
 import { ActivityForm, type ActivityFormValues } from "./activity-form";
 import { EmailComposer, type EmailDraft } from "./email-composer";
+import { FileUpload } from "./file-upload";
 import type { EmailTemplate, TemplateCustomerFields } from "@/lib/templates/data";
+import type { CustomerFile } from "@/lib/files/data";
 
 interface DetailComposerProps {
   onAddNote: (body: string) => Promise<boolean>;
@@ -23,14 +25,8 @@ interface DetailComposerProps {
   templates: EmailTemplate[];
   customerFields: TemplateCustomerFields;
   signatureHtml: string;
-}
-
-function ComingSoon({ label }: { label: string }) {
-  return (
-    <p className="py-6 text-center text-sm text-muted-foreground">
-      {label} – kommt bald.
-    </p>
-  );
+  customerFiles: CustomerFile[];
+  onFileAdded: (file: CustomerFile) => void;
 }
 
 /** Anlege-Leiste oben: Notiz (aktiv) + Platzhalter-Reiter für Aktivität/E-Mail/Datei. */
@@ -45,6 +41,8 @@ export function DetailComposer({
   templates,
   customerFields,
   signatureHtml,
+  customerFiles,
+  onFileAdded,
 }: DetailComposerProps) {
   const [body, setBody] = useState("");
   const [saving, setSaving] = useState(false);
@@ -109,10 +107,11 @@ export function DetailComposer({
               templates={templates}
               customerFields={customerFields}
               signatureHtml={signatureHtml}
+              customerFiles={customerFiles}
             />
           </TabsContent>
-          <TabsContent value="file">
-            <ComingSoon label="Dateien anhängen (PROJ-13)" />
+          <TabsContent value="file" className="mt-4">
+            <FileUpload customerId={customerId} onFileAdded={onFileAdded} />
           </TabsContent>
         </Tabs>
       </CardContent>

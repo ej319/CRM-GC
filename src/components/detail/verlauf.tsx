@@ -10,10 +10,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NoteItem } from "./note-item";
 import { ActivityItem } from "./activity-item";
 import { EmailItem } from "./email-item";
+import { FilesList } from "./files-list";
 import type { ActivityFormValues } from "./activity-form";
 import { isOpen, type Activity } from "@/lib/activities/data";
 import { VERLAUF_FILTERS, type Note } from "@/lib/notes/data";
 import type { Email } from "@/lib/email/data";
+import type { FileEntry } from "@/lib/files/data";
 
 interface VerlaufProps {
   notes: Note[];
@@ -24,6 +26,8 @@ interface VerlaufProps {
   onEditActivity: (id: string, values: ActivityFormValues) => Promise<boolean>;
   onDeleteActivity: (id: string) => void;
   emails: Email[];
+  fileEntries: FileEntry[];
+  onDeleteFile: (entry: FileEntry) => void;
 }
 
 function sortActivities(activities: Activity[]): Activity[] {
@@ -94,17 +98,9 @@ function Empty() {
   );
 }
 
-function ComingSoon({ label }: { label: string }) {
-  return (
-    <p className="py-6 text-center text-sm text-muted-foreground">
-      {label} – kommt bald.
-    </p>
-  );
-}
-
-/** Verlauf-Zeitleiste mit Filter-Reitern (Notizen + Aktivitäten; E-Mails/Dateien folgen). */
+/** Verlauf-Zeitleiste mit Filter-Reitern (Notizen, Aktivitäten, E-Mails, Dateien). */
 export function Verlauf(props: VerlaufProps) {
-  const { notes, activities, emails } = props;
+  const { notes, activities, emails, fileEntries, onDeleteFile } = props;
   const nothing =
     notes.length === 0 && activities.length === 0 && emails.length === 0;
 
@@ -125,6 +121,9 @@ export function Verlauf(props: VerlaufProps) {
                   : ""}
                 {f.key === "emails" && emails.length > 0
                   ? ` (${emails.length})`
+                  : ""}
+                {f.key === "files" && fileEntries.length > 0
+                  ? ` (${fileEntries.length})`
                   : ""}
               </TabsTrigger>
             ))}
@@ -150,8 +149,8 @@ export function Verlauf(props: VerlaufProps) {
           <TabsContent value="emails" className="mt-4">
             {emails.length === 0 ? <Empty /> : <EmailsList {...props} />}
           </TabsContent>
-          <TabsContent value="files">
-            <ComingSoon label="Dateien (PROJ-13)" />
+          <TabsContent value="files" className="mt-4">
+            <FilesList entries={fileEntries} onDelete={onDeleteFile} />
           </TabsContent>
         </Tabs>
       </CardContent>

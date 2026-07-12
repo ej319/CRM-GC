@@ -1,8 +1,21 @@
 # PROJ-13: Dateien/Angebote anhängen
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-07-12
 **Last Updated:** 2026-07-12
+
+> **Stand 2026-07-12:** Frontend + Backend gebaut, DB-Migration live angewandt (Tabelle `customer_files` + privater Bucket `customer-files`, per SQL verifiziert). Verifiziert: tsc sauber · Vitest **91/91** (7 neue für `buildFileEntries`/`formatFileSize`) · `next build`. Es folgt Deploy + Live-Check.
+
+## Implementation Notes
+
+### Frontend + Backend (2026-07-12)
+- **Datenschicht `src/lib/files/`**: `data.ts` (Typen, reine `buildFileEntries` zum Zusammenführen eigener Dateien + E-Mail-Anhänge, `formatFileSize`; + Tests), `schema.ts` (Zod), `queries.ts` (`getCustomerFiles`), `actions.ts` (`addCustomerFile`, `updateFileDescription`, `deleteCustomerFile`, `attachFileToEmail` = Kopie in `email-attachments`).
+- **Datei-Reiter**: neue Komponente `file-upload.tsx` (Mehrfach-Upload + optionale Beschreibung, 20-MB-Prüfung) im `DetailComposer`.
+- **Verlauf „Dateien"**: neue `files-list.tsx` (zusammengeführte Liste, Download per signiertem Link je Bucket, Löschen nur eigener Uploads mit Bestätigung); `verlauf.tsx` um `fileEntries`/`onDeleteFile` erweitert, Zähler im Reiter.
+- **Composer**: „Aus Dateien" (Dropdown der Kundendateien) → `attachFileToEmail` → als Anhang übernommen.
+- **Kette**: `kunde/[id]/page.tsx` (`getCustomerFiles`) → `CustomerDetail` (Datei-State, `addFile`/`removeFile`, `buildFileEntries`) → `DetailComposer`/`EmailComposer`/`Verlauf`.
+- **DB**: Migration `supabase/migrations/proj13_customer_files.sql` live angewandt + verifiziert (4 Tabellen-Policies, privater Bucket, 3 Storage-Policies).
+- **Verifikation**: tsc sauber · Vitest 91/91 · `next build`.
 
 > **Kurzfassung:** Am Kunden lassen sich Dateien (Angebote, PDFs, Fotos, Office-Dokumente) ablegen, in einer Liste ansehen, herunterladen und wieder löschen. Der „Dateien"-Bereich zeigt eine **Gesamtübersicht**: selbst hochgeladene Dateien **und** die Anhänge aus gesendeten E-Mails (Herkunft klar erkennbar). Abgelegte Dateien können außerdem direkt an eine neue E-Mail angehängt werden.
 

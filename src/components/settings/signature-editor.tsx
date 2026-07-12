@@ -38,13 +38,13 @@ export function SignatureEditor({ initialHtml }: { initialHtml: string }) {
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
           Diese Signatur wird beim Schreiben automatisch unter deine E-Mails gesetzt
-          (pro Mail abschaltbar). Über das Bild-Symbol kannst du dein Logo einfügen.
+          (pro Mail abschaltbar).
         </p>
         <RichTextEditor
           ref={editorRef}
           value={body}
           onChange={setBody}
-          placeholder="Name, Firma, Kontakt … – Logo über das Bild-Symbol oder per Einfügen (Strg+V)"
+          placeholder="Name, Firma, Kontakt …"
           uploadImage={uploadForEditor}
           toolbarExtra={
             <EditorImageButton
@@ -54,11 +54,21 @@ export function SignatureEditor({ initialHtml }: { initialHtml: string }) {
             />
           }
         />
-        <div className="flex justify-end">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <EditorImageButton
+            label="Logo / Bild einfügen"
+            onInsert={(url) =>
+              editorRef.current?.insertHtml(`<img src="${url}" alt="" />`)
+            }
+          />
           <Button onClick={handleSave} disabled={saving}>
             {saving ? "Speichern …" : "Speichern"}
           </Button>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Tipp: Wähle dein Logo als Bilddatei (JPG oder PNG) vom Computer. Es wird
+          automatisch übernommen und beim Empfänger zuverlässig angezeigt.
+        </p>
       </CardContent>
     </Card>
   );

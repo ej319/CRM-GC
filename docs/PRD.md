@@ -27,7 +27,7 @@ Zunächst der Geschäftsführer der G+C Facility GmbH als alleiniger Vertriebsnu
 | P1 | E-Mail-Vorlagen | Planned |
 | P1 | Pipeline-Automatik-Regeln | Roadmap |
 | P2 | Erinnerungen/Benachrichtigungen für Aktivitäten | Deployed |
-| P2 | Auswertungen/Dashboard | Roadmap |
+| P2 | Auswertungen/Dashboard | Deployed |
 | P2 | Dateien/Angebote anhängen | Planned |
 
 ## Success Metrics

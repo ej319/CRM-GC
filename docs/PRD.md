@@ -26,7 +26,7 @@ Zunächst der Geschäftsführer der G+C Facility GmbH als alleiniger Vertriebsnu
 | P0 (MVP) | Click-to-Call über Placetel | Planned |
 | P1 | E-Mail-Vorlagen | Planned |
 | P1 | Pipeline-Automatik-Regeln | Roadmap |
-| P2 | Erinnerungen/Benachrichtigungen für Aktivitäten | Roadmap |
+| P2 | Erinnerungen/Benachrichtigungen für Aktivitäten | Architected |
 | P2 | Auswertungen/Dashboard | Roadmap |
 | P2 | Dateien/Angebote anhängen | Planned |
 

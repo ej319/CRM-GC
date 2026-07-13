@@ -25,7 +25,7 @@
 | PROJ-8 | Click-to-Call über Placetel | P0 | PROJ-2, PROJ-4 | Deployed | PROJ-8-click-to-call-placetel.md | 2026-06-23 |
 | PROJ-9 | E-Mail-Vorlagen | P1 | PROJ-7 | Deployed | PROJ-9-email-vorlagen.md | 2026-07-07 |
 | PROJ-10 | Pipeline-Automatik-Regeln | P1 | PROJ-2, PROJ-5, PROJ-7 | Roadmap | | |
-| PROJ-11 | Erinnerungen/Benachrichtigungen für Aktivitäten | P2 | PROJ-5 | Roadmap | | |
+| PROJ-11 | Erinnerungen/Benachrichtigungen für Aktivitäten | P2 | PROJ-5 | Architected | PROJ-11-erinnerungen-aktivitaeten.md | 2026-07-13 |
 | PROJ-12 | Auswertungen/Dashboard | P2 | PROJ-2 | Roadmap | | |
 | PROJ-13 | Dateien/Angebote anhängen | P2 | PROJ-2, PROJ-4, PROJ-7 | Deployed | PROJ-13-dateien-anhaengen.md | 2026-07-12 |
 | PROJ-14 | In-App-Hilfe & Feedback/Ticket-System (Nutzer/Mitarbeiter melden Fehler & Ideen; Claude triagiert als Support und setzt als Entwickler um) | P1 | PROJ-1 | Roadmap | | 2026-06-25 |

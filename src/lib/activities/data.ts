@@ -49,6 +49,24 @@ export function dueStatus(dueDate: string, today: string = todayInBerlin()): Due
   return "future";
 }
 
+/**
+ * Fällige Erinnerungen: offene Aktivitäten mit Fälligkeit ≤ heute
+ * (überfällig + heute), überfällige zuerst (nach Datum/Uhrzeit aufsteigend).
+ * Reine Funktion (Erinnerungs-Glocke, PROJ-11).
+ */
+export function dueReminders<T extends Activity>(
+  activities: T[],
+  today: string = todayInBerlin(),
+): T[] {
+  return activities
+    .filter(isOpen)
+    .filter((a) => a.dueDate <= today)
+    .slice()
+    .sort((a, b) =>
+      (a.dueDate + (a.dueTime ?? "")).localeCompare(b.dueDate + (b.dueTime ?? "")),
+    );
+}
+
 const STATUS_RANK: Record<DueStatus, number> = { overdue: 0, today: 1, future: 2 };
 
 /**

@@ -1,8 +1,18 @@
 # PROJ-11: Erinnerungen/Benachrichtigungen für Aktivitäten
 
-## Status: Architected
+## Status: Deployed
 **Created:** 2026-07-13
 **Last Updated:** 2026-07-13
+
+> **Stand 2026-07-13:** **Live auf https://crm-gc.vercel.app.** Erinnerungs-Glocke in der Kopfzeile (überfällig + heute fällig), Dropdown mit Direktsprung zur Kundenakte. Keine neue Datenbank (live aus vorhandenen Aktivitäten berechnet). Verifiziert: tsc sauber · Vitest **94/94** (3 neue für `dueReminders`) · `next build` · Live-Routen ok.
+
+## Implementation Notes
+
+### Umsetzung (2026-07-13)
+- **Reine Funktion `dueReminders()`** in `src/lib/activities/data.ts` (offene Aktivitäten mit Fälligkeit ≤ heute, überfällige zuerst) + 3 Unit-Tests.
+- **`src/components/notification-bell.tsx`** (Client): Glocke + roter Zähler; Dropdown listet bis zu 10 fällige Aktivitäten (Kunde, Typ, Fälligkeit; überfällige rot), Direktlink zur Kundenakte, plus „Alle Aktivitäten".
+- **`AppShell`** lädt `getOpenActivities()` → `dueReminders()` und rendert die Glocke links vom Nutzer-Menü (auf jeder angemeldeten Seite).
+- **Keine Migration/keine neue Bibliothek.** Verifikation: tsc sauber · Vitest 94/94 · `next build`.
 
 > **Kurzfassung:** Eine **Erinnerungs-Glocke** in der Kopfzeile (auf jeder Seite sichtbar) zeigt an, wie viele offene Aktivitäten **heute fällig oder überfällig** sind. Ein Klick öffnet eine kurze Liste dieser Aktivitäten (Kunde, Typ, Fälligkeit) — direkt anklickbar, um zur Kundenakte zu springen. So gehen geplante Anrufe/Termine nicht unter, sobald man im CRM ist.
 
@@ -116,7 +126,12 @@ Kopfzeile (AppShell, jede Seite)
 **Keine.**
 
 ## QA Test Results
-_To be added by /qa_
+_Formaler /qa-Durchlauf ausstehend. Verifiziert: Vitest 94/94 (3 neu: `dueReminders`), tsc sauber, `next build`, Live-Routen. Ausstehend: authentifizierter Sicht-Test (Glocke zeigt korrekte Anzahl; Klick öffnet Kundenakte)._
 
 ## Deployment
-_To be added by /deploy_
+
+### Deploy 2026-07-13
+- **Live:** https://crm-gc.vercel.app — Vercel-Projekt `ewgeni-s-projects/crm-gc`
+- **Keine Datenbank-Änderung, keine neuen Umgebungs-Variablen** (Erinnerungen live aus vorhandenen Aktivitäten).
+- **Post-Deploy-Checks:** Kundenakte/App login-geschützt (307 → /login), `/login` 200 — keine Regression.
+- **Offen:** kurzer Sicht-Test durch den Nutzer (Glocke oben rechts zeigt fällige Aktivitäten, Klick springt zum Kunden).

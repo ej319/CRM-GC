@@ -4,6 +4,7 @@ import {
   markerStatus,
   focusActivity,
   formatDue,
+  dueReminders,
   type Activity,
 } from "./data";
 
@@ -24,6 +25,37 @@ describe("dueStatus", () => {
     expect(dueStatus("2026-06-21", TODAY)).toBe("overdue");
     expect(dueStatus("2026-06-22", TODAY)).toBe("today");
     expect(dueStatus("2026-06-23", TODAY)).toBe("future");
+  });
+});
+
+describe("dueReminders", () => {
+  it("nimmt nur offene, überfällige + heute fällige Aktivitäten", () => {
+    const res = dueReminders(
+      [
+        act({ id: "over", dueDate: "2026-06-20" }),
+        act({ id: "today", dueDate: TODAY }),
+        act({ id: "future", dueDate: "2026-06-25" }),
+        act({ id: "done", dueDate: "2026-06-19", completedAt: "2026-06-21T10:00:00Z" }),
+      ],
+      TODAY,
+    );
+    expect(res.map((a) => a.id)).toEqual(["over", "today"]);
+  });
+
+  it("sortiert überfällige zuerst (nach Datum/Uhrzeit)", () => {
+    const res = dueReminders(
+      [
+        act({ id: "b", dueDate: TODAY, dueTime: "09:00" }),
+        act({ id: "a", dueDate: "2026-06-19" }),
+        act({ id: "c", dueDate: TODAY, dueTime: "14:00" }),
+      ],
+      TODAY,
+    );
+    expect(res.map((a) => a.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("leere Liste, wenn nichts fällig", () => {
+    expect(dueReminders([act({ dueDate: "2026-06-30" })], TODAY)).toEqual([]);
   });
 });
 

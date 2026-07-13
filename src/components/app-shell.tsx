@@ -2,9 +2,12 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 
 import { UserMenu } from "@/components/user-menu";
+import { NotificationBell } from "@/components/notification-bell";
 import { CallSchemeProvider } from "@/components/phone/call-scheme";
 import { GmailResultToast } from "@/components/gmail-result-toast";
 import { createClient } from "@/lib/supabase/server";
+import { getOpenActivities } from "@/lib/activities/queries";
+import { dueReminders } from "@/lib/activities/data";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -38,6 +41,8 @@ export async function AppShell({ children }: AppShellProps) {
 
   const displayName = profile.full_name || profile.email;
 
+  const reminders = dueReminders(await getOpenActivities());
+
   return (
     <CallSchemeProvider>
       <Suspense fallback={null}>
@@ -51,11 +56,14 @@ export async function AppShell({ children }: AppShellProps) {
               G+C Facility GmbH
             </span>
           </div>
-          <UserMenu
-            name={displayName}
-            email={profile.email}
-            avatarUrl={profile.avatar_url || undefined}
-          />
+          <div className="flex items-center gap-1">
+            <NotificationBell reminders={reminders} />
+            <UserMenu
+              name={displayName}
+              email={profile.email}
+              avatarUrl={profile.avatar_url || undefined}
+            />
+          </div>
         </header>
         <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>

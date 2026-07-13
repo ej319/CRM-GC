@@ -1,8 +1,10 @@
 # PROJ-14: In-App-Hilfe & Feedback/Ticket-System
 
-## Status: Architected
+## Status: Deployed
 **Created:** 2026-07-13
 **Last Updated:** 2026-07-13
+
+> **Stand 2026-07-13:** **Live auf https://crm-gc.vercel.app.** Feedback-Dialog (Schnellzugriff-Symbol in der Kopfzeile, erfasst die aktuelle Seite) + Seite „Hilfe & Feedback" (Liste, Status neu/in Arbeit/erledigt, Löschen). DB-Migration `feedback_tickets` live + verifiziert (4 Policies). tsc sauber · Vitest **98/98** (4 neue) · `next build` · Live-Routen ok. Offen: kurzer Sicht-Test durch den Nutzer.
 
 > **Kurzfassung:** Nutzer melden **Fehler, Ideen oder Fragen** direkt aus der App. Jede Meldung wird als **Ticket** gespeichert (mit automatisch erfasster Seite als Kontext) und auf einer **„Hilfe & Feedback"-Seite** gesammelt — mit Status (neu / in Arbeit / erledigt), damit sie nachverfolgt und abgearbeitet werden können. Dazu ein kurzer Hilfe-Text auf derselben Seite.
 
@@ -113,7 +115,13 @@ Seite /feedback (nur angemeldet)
 **Keine.**
 
 ## QA Test Results
-_To be added by /qa_
+_Formaler /qa-Durchlauf ausstehend. Verifiziert: Vitest 98/98 (4 neu: Art/Status-Labels), tsc sauber, `next build`, DB (Tabelle + 4 Policies), Live-Routen. Ausstehend: authentifizierter End-to-End-Test (Feedback absenden, Status ändern, löschen)._
 
 ## Deployment
-_To be added by /deploy_
+
+### Deploy 2026-07-13
+- **Live:** https://crm-gc.vercel.app — Vercel-Projekt `ewgeni-s-projects/crm-gc`
+- **Datenbank:** Migration `proj14_feedback_tickets` angewandt + verifiziert (Tabelle `feedback_tickets`, 4 Policies, Team-RLS).
+- **Keine neuen Umgebungs-Variablen.**
+- **Post-Deploy-Checks:** `/feedback` login-geschützt (307 → /login); `/login` 200 — keine Regression.
+- **Offen:** manueller Smoke-Test durch den Nutzer (Feedback absenden → in Liste → Status ändern → löschen).

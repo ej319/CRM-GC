@@ -1,8 +1,12 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 
+import { LifeBuoy } from "lucide-react";
+
 import { UserMenu } from "@/components/user-menu";
 import { NotificationBell } from "@/components/notification-bell";
+import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
+import { Button } from "@/components/ui/button";
 import { CallSchemeProvider } from "@/components/phone/call-scheme";
 import { GmailResultToast } from "@/components/gmail-result-toast";
 import { createClient } from "@/lib/supabase/server";
@@ -57,6 +61,13 @@ export async function AppShell({ children }: AppShellProps) {
             </span>
           </div>
           <div className="flex items-center gap-1">
+            <FeedbackDialog
+              trigger={
+                <Button variant="ghost" size="icon" aria-label="Hilfe & Feedback">
+                  <LifeBuoy className="h-5 w-5" />
+                </Button>
+              }
+            />
             <NotificationBell reminders={reminders} />
             <UserMenu
               name={displayName}

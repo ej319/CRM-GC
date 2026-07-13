@@ -51,6 +51,8 @@ export interface EmailDraft {
   /** Nachrichtentext als HTML (formatiert). Wird serverseitig bereinigt. */
   body: string;
   attachments: EmailAttachmentRef[];
+  /** Name der zuletzt angewandten Vorlage (für Automatik-Regeln). */
+  appliedTemplateName?: string;
 }
 
 interface EmailComposerProps {
@@ -103,6 +105,8 @@ export function EmailComposer({
   const [pendingTemplate, setPendingTemplate] = useState<EmailTemplate | null>(null);
   const [applyingTemplate, setApplyingTemplate] = useState(false);
   const [attachingFile, setAttachingFile] = useState(false);
+  // Name der zuletzt eingefügten Vorlage (für Automatik „Angebot → Nachfassen").
+  const [appliedTemplateName, setAppliedTemplateName] = useState<string | undefined>();
   // Signatur standardmäßig anhängen, wenn eine hinterlegt ist.
   const [signatureOn, setSignatureOn] = useState(Boolean(signatureHtml));
 
@@ -159,6 +163,7 @@ export function EmailComposer({
   }
 
   async function applyTemplate(tpl: EmailTemplate) {
+    setAppliedTemplateName(tpl.name);
     // Betreff nur ersetzen, wenn die Vorlage einen hat (sonst vorhandenen behalten).
     if (tpl.subject) {
       setSubject(
@@ -210,6 +215,7 @@ export function EmailComposer({
       subject,
       body: finalBody,
       attachments,
+      appliedTemplateName,
     });
     setSending(false);
     if (ok) {
@@ -218,6 +224,7 @@ export function EmailComposer({
       setCc("");
       setShowCc(false);
       setAttachments([]);
+      setAppliedTemplateName(undefined);
     }
   }
 

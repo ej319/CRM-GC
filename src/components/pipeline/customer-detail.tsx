@@ -34,6 +34,7 @@ import {
 } from "@/lib/activities/actions";
 import { focusActivity, type Activity } from "@/lib/activities/data";
 import { sendEmail } from "@/lib/email/actions";
+import { onEmailSent } from "@/lib/automation/actions";
 import { deleteCustomerFile } from "@/lib/files/actions";
 import type { Email } from "@/lib/email/data";
 import type { EmailDraft } from "@/components/detail/email-composer";
@@ -218,6 +219,17 @@ function CustomerDetailView({
     }
     setEmails((prev) => [res.data, ...prev]);
     toast.success("E-Mail gesendet.");
+
+    // Automatik: „Angebot"-Vorlage verschickt → Nachfassen + Aktivität.
+    const auto = await onEmailSent(customer.id, draft.appliedTemplateName);
+    if (auto.ok && auto.data.movedToStage) {
+      if (auto.data.activity) {
+        setActivities((prev) => [...prev, auto.data.activity!]);
+      }
+      toast.success(
+        "Automatik: Kunde nach 'Nachfassen' verschoben und Aktivität in 2 Werktagen angelegt.",
+      );
+    }
     return true;
   }
 

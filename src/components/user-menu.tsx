@@ -10,6 +10,7 @@ import {
   Settings,
   LifeBuoy,
   LayoutDashboard,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -95,6 +96,12 @@ export function UserMenu({ name, email, avatarUrl }: UserMenuProps) {
           <Link href="/vorlagen">
             <FileText className="mr-2 h-4 w-4" />
             E-Mail-Vorlagen
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/automatik">
+            <Zap className="mr-2 h-4 w-4" />
+            Automatik
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>

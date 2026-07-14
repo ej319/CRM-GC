@@ -2,16 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  CalendarClock,
-  LogOut,
-  Upload,
-  FileText,
-  Settings,
-  LifeBuoy,
-  LayoutDashboard,
-  Zap,
-} from "lucide-react";
+import { LogOut, Upload, Settings, LifeBuoy } from "lucide-react";
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -80,30 +71,6 @@ export function UserMenu({ name, email, avatarUrl }: UserMenuProps) {
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href="/dashboard">
-            <LayoutDashboard className="mr-2 h-4 w-4" />
-            Dashboard
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/aktivitaeten">
-            <CalendarClock className="mr-2 h-4 w-4" />
-            Aktivitäten
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/vorlagen">
-            <FileText className="mr-2 h-4 w-4" />
-            E-Mail-Vorlagen
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href="/automatik">
-            <Zap className="mr-2 h-4 w-4" />
-            Automatik
-          </Link>
-        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link href="/einstellungen">
             <Settings className="mr-2 h-4 w-4" />

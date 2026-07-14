@@ -1,8 +1,10 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { LifeBuoy } from "lucide-react";
 
+import { MainNav } from "@/components/main-nav";
 import { UserMenu } from "@/components/user-menu";
 import { NotificationBell } from "@/components/notification-bell";
 import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
@@ -55,14 +57,14 @@ export async function AppShell({ children }: AppShellProps) {
       </Suspense>
       <InboundAutoCheck />
       <div className="flex min-h-screen flex-col bg-muted/40">
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b bg-background px-4 sm:px-6">
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-bold text-primary">CRM</span>
-            <span className="hidden text-sm text-muted-foreground sm:inline">
-              G+C Facility GmbH
-            </span>
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-2 border-b bg-background px-3 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <Link href="/" className="shrink-0 text-lg font-bold text-primary">
+              CRM
+            </Link>
+            <MainNav />
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             <FeedbackDialog
               trigger={
                 <Button variant="ghost" size="icon" aria-label="Hilfe & Feedback">

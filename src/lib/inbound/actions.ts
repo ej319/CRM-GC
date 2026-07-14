@@ -101,7 +101,7 @@ export async function checkInboundEmails(
         name: parsed.name,
         email: parsed.email ?? "",
         phone: parsed.phone ?? "",
-        contact_name: "",
+        contact_name: parsed.contactName ?? "",
         address: "",
         plz: "",
         city: "",

@@ -1,8 +1,12 @@
 # PROJ-10: Pipeline-Automatik-Regeln
 
-## Status: In Progress
+## Status: Deployed
 **Created:** 2026-07-13
 **Last Updated:** 2026-07-13
+
+> **Stand 2026-07-13 (Phase 2 live):** **Automatik 1 gebaut und live.** Gmail-**Lesezugriff** (`gmail.readonly`) ergänzt; Mails mit dem eingestellten **Label** (Standard „CRM-Anfrage") werden ausgelesen → Kunde in **„Anfrage"** + **Notiz** (Mail-Text) + **Aktivität „Anruf" für heute**. Doppelte werden über `inbound_processed` verhindert. Geprüft wird **beim Öffnen des CRM** (serverseitig auf max. alle 5 Min. gedrosselt) und per **„Jetzt prüfen"**-Knopf auf der Automatik-Seite (dort auch das Label einstellbar). Statt Vercel-Cron bewusst gewählt, weil der Hobby-Tarif nur **einen Tages-Cron** erlaubt.
+> **Wichtig – einmalige Nutzer-Aktion:** Der bestehende Gmail-Token hat nur Sende-Rechte. Der Nutzer muss **Gmail einmal neu verbinden** (und ggf. den Scope im Google-Cloud-Zustimmungsbildschirm ergänzen), sonst meldet die Seite „Gmail neu verbinden". Zusätzlich braucht es einen **Gmail-Filter**, der Anfrage-Mails mit dem Label versieht.
+> tsc sauber · Vitest **117/117** (9 neue Parser-Tests) · `next build`.
 
 > **Stand 2026-07-13 (Phase 1 live):** **Automatik 2** ist live auf https://crm-gc.vercel.app: Wird eine E-Mail mit der Vorlage **„Angebot"** gesendet, wandert der Kunde automatisch in die neue Phase **„Nachfassen"** und es entsteht eine Aktivität „Nachfassen" **2 Werktage** später. Neue Pipeline-Phasen **Angebotserstellung** + **Nachfassen** ergänzt. Eigene Seite **„Automatik"** (Nutzer-Menü) mit An/Aus je Regel. tsc sauber · Vitest **108/108** (4 neue) · `next build`.
 > **Phase 2 (geplant): Automatik 1** — eingehende Anfrage-Mail → automatisch Lead. Braucht Gmail-**Lesezugriff** (neuer Scope + einmalige Google-Freigabe des Nutzers) + einen **zeitgesteuerten Prüf-Dienst** (Vercel Cron) + Parsing/Dedup. Regel ist als „geplant/aus" bereits sichtbar.

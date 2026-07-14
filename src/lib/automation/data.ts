@@ -21,10 +21,10 @@ export const RULES: RuleMeta[] = [
   },
   {
     key: "inbound_email_to_lead",
-    title: "Eingehende Anfrage-Mail → neuer Lead (geplant)",
+    title: "Eingehende Anfrage-Mail → neuer Lead",
     description:
-      "Kommt eine E-Mail mit passendem Label/Betreff, wird automatisch ein Kunde in 'Anfrage' angelegt und eine Aktivität 'Anruf' für denselben Tag erstellt. Braucht Gmail-Lesezugriff + regelmäßigen Prüf-Dienst (nächste Phase).",
-    active: false,
+      "Mails mit dem unten eingestellten Gmail-Label werden automatisch als Kunde in der Phase 'Anfrage' angelegt – inklusive Notiz mit dem Mail-Text und einer Aktivität 'Anruf' für heute. Das CRM prüft beim Öffnen (max. alle 5 Minuten) und auf Knopfdruck.",
+    active: true,
   },
 ];
 

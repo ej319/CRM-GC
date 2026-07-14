@@ -6,6 +6,7 @@ import { LifeBuoy } from "lucide-react";
 import { UserMenu } from "@/components/user-menu";
 import { NotificationBell } from "@/components/notification-bell";
 import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
+import { InboundAutoCheck } from "@/components/automation/inbound-auto-check";
 import { Button } from "@/components/ui/button";
 import { CallSchemeProvider } from "@/components/phone/call-scheme";
 import { GmailResultToast } from "@/components/gmail-result-toast";
@@ -52,6 +53,7 @@ export async function AppShell({ children }: AppShellProps) {
       <Suspense fallback={null}>
         <GmailResultToast />
       </Suspense>
+      <InboundAutoCheck />
       <div className="flex min-h-screen flex-col bg-muted/40">
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b bg-background px-4 sm:px-6">
           <div className="flex items-center gap-2">

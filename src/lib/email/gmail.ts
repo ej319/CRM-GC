@@ -7,9 +7,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { buildRawMessage, type RawAttachment, type InlineImage } from "@/lib/email/mime";
 import type { GmailStatus } from "@/lib/email/data";
 
-// Nur Senden + die verbundene Adresse lesen – Minimalprinzip (Lese-Sync kommt später).
+// Senden + verbundene Adresse + LESEN (für Automatik 1: eingehende Anfragen).
+// gmail.readonly ist nötig, um Nachrichten mit dem Anfrage-Label zu erkennen.
 const SCOPES = [
   "https://www.googleapis.com/auth/gmail.send",
+  "https://www.googleapis.com/auth/gmail.readonly",
   "https://www.googleapis.com/auth/userinfo.email",
 ];
 
@@ -194,6 +196,139 @@ export async function sendMail(
     return { messageId: res.data.id ?? "", from: conn.email };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    if (/invalid_grant|invalid_token|unauthorized|401/i.test(msg)) {
+      throw new GmailReconnectError("RECONNECT");
+    }
+    throw err;
+  }
+}
+
+// ── Lesen: eingehende Anfrage-Mails (Automatik 1) ────────────────────────
+
+export interface InboundMessage {
+  id: string;
+  fromName?: string;
+  fromEmail?: string;
+  subject?: string;
+  bodyText?: string;
+}
+
+interface GmailPart {
+  mimeType?: string | null;
+  body?: { data?: string | null } | null;
+  parts?: GmailPart[] | null;
+}
+
+function headerVal(
+  headers: { name?: string | null; value?: string | null }[] | undefined,
+  name: string,
+): string | undefined {
+  return (
+    headers?.find((h) => (h.name ?? "").toLowerCase() === name.toLowerCase())?.value ??
+    undefined
+  );
+}
+
+/** „Max Muster" <max@x.de> → { name, email } */
+function parseFromHeader(value?: string): { name?: string; email?: string } {
+  if (!value) return {};
+  const m = value.match(/^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/);
+  if (m) return { name: m[1].trim() || undefined, email: m[2].trim() };
+  return { email: value.match(/[^\s<>]+@[^\s<>]+/)?.[0] };
+}
+
+function decodeB64(data?: string | null): string {
+  if (!data) return "";
+  try {
+    return Buffer.from(data, "base64url").toString("utf8");
+  } catch {
+    return "";
+  }
+}
+
+function htmlToText(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|tr|li)>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function findPart(part: GmailPart | undefined, mime: string): string | undefined {
+  if (!part) return undefined;
+  if (part.mimeType === mime && part.body?.data) return part.body.data;
+  for (const p of part.parts ?? []) {
+    const found = findPart(p, mime);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+function extractBody(payload?: GmailPart): string {
+  const plain = findPart(payload, "text/plain");
+  if (plain) return decodeB64(plain);
+  const html = findPart(payload, "text/html");
+  if (html) return htmlToText(decodeB64(html));
+  return "";
+}
+
+/**
+ * Liest die Nachrichten mit dem angegebenen Gmail-Label (z. B. „CRM-Anfrage").
+ * Wirft GmailReconnectError("RECONNECT_READ"), wenn die Lese-Berechtigung fehlt
+ * (Nutzer muss Gmail einmal neu verbinden).
+ */
+export async function listInquiries(
+  userId: string,
+  label: string,
+  max = 25,
+): Promise<InboundMessage[]> {
+  if (!gmailConfigured()) throw new GmailReconnectError("NOT_CONFIGURED");
+  const conn = await getConnection(userId);
+  if (!conn) throw new GmailReconnectError("NOT_CONNECTED");
+
+  const client = getOAuthClient();
+  client.setCredentials({
+    refresh_token: conn.refresh_token,
+    access_token: conn.access_token ?? undefined,
+    expiry_date: conn.token_expiry ? new Date(conn.token_expiry).getTime() : undefined,
+  });
+  const gmail = google.gmail({ version: "v1", auth: client });
+
+  try {
+    const list = await gmail.users.messages.list({
+      userId: "me",
+      q: `label:"${label}"`,
+      maxResults: max,
+    });
+    const ids = (list.data.messages ?? [])
+      .map((m) => m.id)
+      .filter((id): id is string => Boolean(id));
+
+    const out: InboundMessage[] = [];
+    for (const id of ids) {
+      const msg = await gmail.users.messages.get({ userId: "me", id, format: "full" });
+      const headers = msg.data.payload?.headers ?? undefined;
+      const from = parseFromHeader(headerVal(headers, "From"));
+      out.push({
+        id,
+        fromName: from.name,
+        fromEmail: from.email,
+        subject: headerVal(headers, "Subject") ?? undefined,
+        bodyText: extractBody(msg.data.payload as GmailPart | undefined),
+      });
+    }
+    return out;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/insufficient|forbidden|403|scope|ACCESS_TOKEN_SCOPE/i.test(msg)) {
+      throw new GmailReconnectError("RECONNECT_READ");
+    }
     if (/invalid_grant|invalid_token|unauthorized|401/i.test(msg)) {
       throw new GmailReconnectError("RECONNECT");
     }

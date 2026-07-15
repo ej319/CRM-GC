@@ -29,7 +29,7 @@ export function NotificationBell({ reminders }: { reminders: ActivityRow[] }) {
         <Button
           variant="ghost"
           size="icon"
-          className="relative"
+          className="relative text-white hover:bg-white/10 hover:text-white"
           aria-label={`Erinnerungen${total > 0 ? ` (${total} fällig)` : ""}`}
         >
           <Bell className="h-5 w-5" />

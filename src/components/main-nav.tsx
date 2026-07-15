@@ -38,8 +38,8 @@ export function MainNav() {
             className={cn(
               "flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm transition-colors",
               active
-                ? "bg-muted font-medium text-foreground"
-                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                ? "bg-white/15 font-medium text-white"
+                : "text-white/70 hover:bg-white/10 hover:text-white",
             )}
           >
             <Icon className="h-4 w-4 shrink-0" />

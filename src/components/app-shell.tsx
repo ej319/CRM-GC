@@ -57,9 +57,12 @@ export async function AppShell({ children }: AppShellProps) {
       </Suspense>
       <InboundAutoCheck />
       <div className="flex min-h-screen flex-col bg-muted/40">
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-2 border-b bg-background px-3 sm:px-6">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-2 border-b border-white/10 bg-[#1a1d29] px-3 text-white sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <Link href="/" className="shrink-0 text-lg font-bold text-primary">
+            <Link
+              href="/"
+              className="shrink-0 rounded bg-primary px-2 py-0.5 text-sm font-bold tracking-tight text-primary-foreground"
+            >
               CRM
             </Link>
             <MainNav />
@@ -67,7 +70,12 @@ export async function AppShell({ children }: AppShellProps) {
           <div className="flex shrink-0 items-center gap-1">
             <FeedbackDialog
               trigger={
-                <Button variant="ghost" size="icon" aria-label="Hilfe & Feedback">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Hilfe & Feedback"
+                  className="text-white hover:bg-white/10 hover:text-white"
+                >
                   <LifeBuoy className="h-5 w-5" />
                 </Button>
               }

@@ -23,6 +23,7 @@ interface VerlaufProps {
   onDeleteNote: (id: string) => void;
   activities: Activity[];
   onCompleteActivity: (id: string) => void;
+  onReopenActivity: (id: string) => void;
   onEditActivity: (id: string, values: ActivityFormValues) => Promise<boolean>;
   onDeleteActivity: (id: string) => void;
   emails: Email[];
@@ -59,11 +60,16 @@ function NotesList({
 function ActivitiesList({
   activities,
   onCompleteActivity,
+  onReopenActivity,
   onEditActivity,
   onDeleteActivity,
 }: Pick<
   VerlaufProps,
-  "activities" | "onCompleteActivity" | "onEditActivity" | "onDeleteActivity"
+  | "activities"
+  | "onCompleteActivity"
+  | "onReopenActivity"
+  | "onEditActivity"
+  | "onDeleteActivity"
 >) {
   return (
     <div className="space-y-4">
@@ -72,6 +78,7 @@ function ActivitiesList({
           key={activity.id}
           activity={activity}
           onComplete={onCompleteActivity}
+          onReopen={onReopenActivity}
           onEdit={onEditActivity}
           onDelete={onDeleteActivity}
         />

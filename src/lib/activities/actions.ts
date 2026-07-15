@@ -83,6 +83,24 @@ export async function completeActivity(id: string): Promise<Result<Activity>> {
   return { ok: true, data: rowToActivity(data as never) };
 }
 
+/** Erledigte Aktivität wieder als offen markieren (Häkchen zurücknehmen). */
+export async function reopenActivity(id: string): Promise<Result<Activity>> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { ok: false, error: "Nicht angemeldet" };
+
+  const { data, error } = await supabase
+    .from("activities")
+    .update({ completed_at: null })
+    .eq("id", id)
+    .select(ACTIVITY_SELECT)
+    .single();
+  if (error || !data) {
+    return { ok: false, error: error?.message ?? "Zurücknehmen fehlgeschlagen" };
+  }
+  revalidate();
+  return { ok: true, data: rowToActivity(data as never) };
+}
+
 /** Aktivität bearbeiten. */
 export async function updateActivity(
   id: string,

@@ -59,14 +59,16 @@ const CARD_STYLE = {
 interface ActivityItemProps {
   activity: Activity;
   onComplete: (id: string) => void;
+  onReopen?: (id: string) => void;
   onEdit: (id: string, values: ActivityFormValues) => Promise<boolean>;
   onDelete: (id: string) => void;
 }
 
-/** Ein Aktivitäts-Eintrag im Verlauf / in der Liste. Offen = farbig + abhakbar; erledigt = abgehakt. */
+/** Ein Aktivitäts-Eintrag im Verlauf / in der Liste. Offen = farbig + abhakbar; erledigt = abgehakt (klickbar zum Zurücknehmen). */
 export function ActivityItem({
   activity,
   onComplete,
+  onReopen,
   onEdit,
   onDelete,
 }: ActivityItemProps) {
@@ -108,6 +110,17 @@ export function ActivityItem({
           className="group mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-muted-foreground/40 text-transparent transition-colors hover:border-green-600 hover:bg-green-600 hover:text-white"
         >
           <Check className="h-4 w-4" />
+        </button>
+      ) : onReopen ? (
+        <button
+          type="button"
+          onClick={() => onReopen(activity.id)}
+          aria-label={`${activity.type} wieder als offen markieren`}
+          title="Erledigt – klicken zum Zurücknehmen"
+          className="group mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-600 text-white transition-colors hover:bg-slate-500"
+        >
+          <Check className="h-4 w-4 group-hover:hidden" />
+          <RotateCcw className="hidden h-3.5 w-3.5 group-hover:block" />
         </button>
       ) : (
         <div

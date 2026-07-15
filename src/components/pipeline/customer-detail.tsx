@@ -29,6 +29,7 @@ import { createNote, deleteNote, updateNote } from "@/lib/notes/actions";
 import {
   createActivity as createActivityAction,
   completeActivity as completeActivityAction,
+  reopenActivity as reopenActivityAction,
   updateActivity as updateActivityAction,
   deleteActivity as deleteActivityAction,
 } from "@/lib/activities/actions";
@@ -190,6 +191,14 @@ function CustomerDetailView({
     setActivities((prev) => prev.map((a) => (a.id === id ? res.data : a)));
     setPlanNextOpen(true);
   }
+  async function reopenActivity(id: string) {
+    const res = await reopenActivityAction(id);
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    setActivities((prev) => prev.map((a) => (a.id === id ? res.data : a)));
+  }
   async function editActivity(
     id: string,
     values: ActivityFormValues,
@@ -320,6 +329,7 @@ function CustomerDetailView({
                 <ActivityItem
                   activity={focus}
                   onComplete={completeActivity}
+                  onReopen={reopenActivity}
                   onEdit={editActivity}
                   onDelete={deleteActivity}
                 />
@@ -337,6 +347,7 @@ function CustomerDetailView({
             onDeleteNote={removeNote}
             activities={activities}
             onCompleteActivity={completeActivity}
+            onReopenActivity={reopenActivity}
             onEditActivity={editActivity}
             onDeleteActivity={deleteActivity}
             emails={emails}

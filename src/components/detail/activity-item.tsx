@@ -48,6 +48,14 @@ const DUE_COLOR = {
   future: "text-slate-500",
 } as const;
 
+// Farbiger Rahmen/Hintergrund je Zustand (offen: nach Fälligkeit; erledigt: grün+gedimmt).
+const CARD_STYLE = {
+  overdue: "border-l-4 border-l-red-500 bg-red-50/60",
+  today: "border-l-4 border-l-green-500 bg-green-50/60",
+  future: "border-l-4 border-l-slate-300",
+  done: "border-l-4 border-l-green-500 bg-muted/50",
+} as const;
+
 interface ActivityItemProps {
   activity: Activity;
   onComplete: (id: string) => void;
@@ -91,18 +99,42 @@ export function ActivityItem({
 
   return (
     <div className="flex gap-3">
+      {open ? (
+        <button
+          type="button"
+          onClick={() => onComplete(activity.id)}
+          aria-label={`${activity.type} als erledigt markieren`}
+          title="Als erledigt markieren"
+          className="group mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-muted-foreground/40 text-transparent transition-colors hover:border-green-600 hover:bg-green-600 hover:text-white"
+        >
+          <Check className="h-4 w-4" />
+        </button>
+      ) : (
+        <div
+          aria-label="erledigt"
+          title="Erledigt"
+          className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-600 text-white"
+        >
+          <Check className="h-4 w-4" />
+        </div>
+      )}
       <div
         className={cn(
-          "mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
-          open ? "bg-muted text-foreground" : "bg-green-100 text-green-700",
+          "flex-1 rounded-md border p-3",
+          open ? CARD_STYLE[status ?? "future"] : CARD_STYLE.done,
         )}
       >
-        {open ? <Icon className="h-4 w-4" /> : <Check className="h-4 w-4" />}
-      </div>
-      <div className="flex-1 rounded-md border p-3">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <p className="text-sm font-medium">{activity.type}</p>
+            <p
+              className={cn(
+                "flex items-center gap-1.5 text-sm font-medium",
+                open ? "" : "text-muted-foreground line-through",
+              )}
+            >
+              <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              {activity.type}
+            </p>
             {open ? (
               <p className={cn("text-xs", status ? DUE_COLOR[status] : "")}>
                 fällig: {formatDue(activity.dueDate, activity.dueTime)}
@@ -119,26 +151,15 @@ export function ActivityItem({
           </div>
           <div className="flex shrink-0 gap-1">
             {open ? (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-green-600"
-                  onClick={() => onComplete(activity.id)}
-                  aria-label="Aktivität abhaken"
-                >
-                  <Check className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2"
-                  onClick={() => setEditing(true)}
-                  aria-label="Aktivität bearbeiten"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-              </>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2"
+                onClick={() => setEditing(true)}
+                aria-label="Aktivität bearbeiten"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
             ) : null}
             <AlertDialog>
               <AlertDialogTrigger asChild>

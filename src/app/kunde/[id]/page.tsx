@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 import { AppShell } from "@/components/app-shell";
 import { CustomerDetail } from "@/components/pipeline/customer-detail";
 import { getCustomer } from "@/lib/pipeline/queries";
@@ -8,6 +10,16 @@ import { getStatus } from "@/lib/email/gmail";
 import { getTemplates } from "@/lib/templates/queries";
 import { getSignature } from "@/lib/signature/queries";
 import { getCustomerFiles } from "@/lib/files/queries";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const customer = await getCustomer(id);
+  return { title: customer ? customer.name : "Kunde" };
+}
 
 export default async function KundePage({
   params,
